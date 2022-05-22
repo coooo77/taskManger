@@ -1,6 +1,5 @@
 import fs from 'fs'
 import path from 'path'
-import cp from 'child_process'
 import Main from '../util/main'
 import FFmpeg from '../util/ffmpeg'
 import Common from '../util/common'
@@ -22,9 +21,9 @@ const config = Main.getConfig()
 
 const { fileNameClipper } = config.combine
 
-const { splitIntervalInSec } = config.split
-
-Object.entries(getCombineList(handleFolder)).reduce(startToCombine, Promise.resolve())
+Object.entries(getCombineList(handleFolder))
+  .reduce(startToCombine, Promise.resolve())
+  .finally(() => process.exit(0))
 
 function getCombineList(source: string) {
   const target = Common.getTargetFiles([source], includeExt, exceptions)
@@ -58,7 +57,7 @@ async function combine(userID: string, filesPath: string[]) {
 
     if (!split) return await handleCombineEnd(filesPath, [outPut])
 
-    const splitOutPut = await FFmpeg.checkAndSplitVideo(outPut, splitIntervalInSec, outputFolder)
+    const splitOutPut = await FFmpeg.checkAndSplitVideo(outPut, outputFolder)
 
     const isSplitSuccess = splitOutPut.length !== 0
 
@@ -84,13 +83,13 @@ async function handleCombineEnd(sourceFilesPath: string[], combinedFilePath?: st
   if (!isCombined) {
     Common.checkMoveFullPathFiles(sourceFilesPath, outputFolder)
   } else {
+    if (!combinedFilePath?.length) return
+
     if (keepFiles) {
       Common.checkMoveFullPathFiles(sourceFilesPath, outputFolder)
     } else {
       Common.deleteFullPathFiles(sourceFilesPath)
     }
-
-    if (!combinedFilePath?.length) return
 
     Common.checkMoveFullPathFiles(combinedFilePath, outputFolder)
 

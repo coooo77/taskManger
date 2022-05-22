@@ -3,6 +3,7 @@ import path from 'path'
 import Main from './main'
 import Common from './common'
 import cp from 'child_process'
+import { Convert } from '../types/config'
 
 export default class FFmpeg {
   static getMediaDuration(videoPath: string, showInSeconds = true): Promise<number> {
@@ -44,14 +45,15 @@ export default class FFmpeg {
   /**
    * check duration of source video is less than length of split, if it is than split it and return splitted filenames, or return empty array.
    * @param videoPath path of video to handle
-   * @param splitLength length of split
    * @param exportPath path to export video, optional
    * @returns {string[]} splitted filenames with full path
    */
-  static async checkAndSplitVideo(videoPath: string, splitLength: number, exportPath?: string): Promise<string[]> {
+  static async checkAndSplitVideo(videoPath: string, exportPath?: string): Promise<string[]> {
+    const { splitIntervalInSec } = Main.getConfig().split
+
     const videoDuration = await FFmpeg.getMediaDuration(videoPath)
 
-    if (Number.isNaN(videoDuration) || videoDuration <= splitLength) return []
+    if (Number.isNaN(videoDuration) || videoDuration <= splitIntervalInSec) return []
 
     const { name, ext, dir } = path.parse(videoPath)
 
@@ -59,7 +61,7 @@ export default class FFmpeg {
 
     const exportFilePath = exportPath || originDir
 
-    const options = `-i ${videoPath} -ss 0 -f segment -segment_start_number 1 -segment_time ${splitLength} -vcodec copy -individual_header_trailer 1 -break_non_keyframes 1 -reset_timestamps 1 ${exportFilePath}\\${name}_%03d${ext}`
+    const options = `-i ${videoPath} -ss 0 -f segment -segment_start_number 1 -segment_time ${splitIntervalInSec} -vcodec copy -individual_header_trailer 1 -break_non_keyframes 1 -reset_timestamps 1 ${exportFilePath}\\${name}_%03d${ext}`
 
     const command = `ffmpeg ${options}`
 
@@ -71,7 +73,7 @@ export default class FFmpeg {
       await FFmpeg.spawnSplit(options, dir)
     }
 
-    return Array(Math.ceil(videoDuration / splitLength))
+    return Array(Math.ceil(videoDuration / splitIntervalInSec))
       .fill(null)
       .map((v, i) => `${exportFilePath}\\${name}_${String(i + 1).padStart(3, '0')}${ext}`)
   }
@@ -91,6 +93,8 @@ export default class FFmpeg {
   static timestampScreenshot(videoPath: string, timestamp: (number | string)[], exportPath?: string) {
     const times = timestamp.map((i) => String(i))
 
+    if (times.length === 0) return
+
     const command = FFmpeg.getScreenshotCmd(times, videoPath, 'timestamp', exportPath)
 
     cp.execSync(command)
@@ -102,6 +106,8 @@ export default class FFmpeg {
     const times = Array(Math.floor(videoDuration / interval))
       .fill(null)
       .map((v, i) => `${interval * i}`)
+
+    if (times.length === 0) return
 
     const command = FFmpeg.getScreenshotCmd(times, videoPath, 'interval', exportPath)
 
@@ -116,6 +122,8 @@ export default class FFmpeg {
     const times = Array(Math.floor(count))
       .fill(null)
       .map((v, i) => `${interval * i}`)
+
+    if (times.length === 0) return
 
     const command = FFmpeg.getScreenshotCmd(times, videoPath, 'count', exportPath)
 
@@ -195,6 +203,54 @@ export default class FFmpeg {
     return new Promise((resolve, reject) => {
       try {
         const task = cp.spawn('ffmpeg', command, { cwd })
+
+        task.stderr.on('data', (msg) => console.log(msg.toString()))
+
+        task.on('close', resolve)
+      } catch (error) {
+        Common.errorHandler(error)
+
+        reject()
+      }
+    })
+  }
+
+  static async convert(filePath: string, task: Convert, exportPath?: string) {
+    const { convert } = Main.getConfig()
+
+    const { crf, ext, preset, showConvertCmd, suffixForCompress, suffixForMute } = convert
+
+    const { mute, compress } = task
+
+    const muteConfig = mute ? ' -an' : ''
+
+    const { dir, name } = path.parse(filePath)
+
+    const exportFilePath = exportPath || dir
+
+    const suffixCompress = compress ? suffixForCompress : ''
+
+    const suffixMute = mute ? suffixForMute : ''
+
+    const handleType = compress ? `-vcodec libx264 -crf ${crf} -preset ${preset}` : `-c copy`
+
+    const convertFilePath = `${exportFilePath}\\${name}${suffixMute}${suffixCompress}.${ext}`
+
+    const cmd = `-i ${filePath} ${handleType}${muteConfig} ${convertFilePath}`
+
+    if (showConvertCmd) {
+      cp.execSync(`ffmpeg ${cmd}`)
+    } else {
+      await FFmpeg.spawnConvert(cmd.split(' '))
+    }
+
+    return convertFilePath
+  }
+
+  static spawnConvert(command: string[]) {
+    return new Promise((resolve, reject) => {
+      try {
+        const task = cp.spawn('ffmpeg', command)
 
         task.stderr.on('data', (msg) => console.log(msg.toString()))
 
