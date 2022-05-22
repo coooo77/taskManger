@@ -139,11 +139,11 @@ export default class Main {
   }
 
   static handleMove(task: Task) {
-    const { sourceFolder, includeExt, exceptions, skip, type } = task
+    const { sourceFolder, includeExt, includes, exceptions, skip, type } = task
 
     if (skip || sourceFolder.length === 0) return
 
-    const files = Common.getTargetFiles(sourceFolder, includeExt, exceptions)
+    const files = Common.getTargetFiles(sourceFolder, includeExt, exceptions, includes)
 
     if (Object.keys(files).length === 0) return
 

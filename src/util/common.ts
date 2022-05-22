@@ -214,11 +214,11 @@ export default class Common {
     }
   }
 
-  static getTargetFiles(source: string[], includeExt: string[], exceptions: string[] = []) {
+  static getTargetFiles(source: string[], includeExt: string[], exceptions: string[] = [], includes?: string[]) {
     return source.reduce((acc, sourcePath) => {
       const files = fs
         .readdirSync(sourcePath)
-        .filter((filename) => Common.isTargetFile(filename, includeExt, exceptions))
+        .filter((filename) => Common.isTargetFile(filename, includeExt, exceptions, includes))
 
       if (files.length !== 0) acc[sourcePath] = files
 
@@ -226,15 +226,29 @@ export default class Common {
     }, {} as FilesToHandle)
   }
 
-  static isTargetFile(filename: string, includeExt: string[], exceptions: string[]) {
-    return Common.isValidExtName(filename, includeExt) && Common.isValidTarget(filename, exceptions)
+  static isTargetFile(filename: string, includeExt: string[], exceptions: string[], includes?: string[]) {
+    const isValidExtName = includeExt.length ? Common.isValidExtName(filename, includeExt) : false
+
+    const isNotInExceptions = exceptions.length ? Common.isNotInExceptions(filename, exceptions) : true
+
+    const isIncluded = includes?.length ? Common.isIncluded(filename, includes) : true
+
+    return isValidExtName && isNotInExceptions && isIncluded
   }
 
   static isValidExtName(filename: string, checkList: string[]) {
     return checkList.includes(path.extname(filename).slice(1))
   }
 
-  static isValidTarget(filename: string, checkList: string[]) {
+  static isIncluded(filename: string, checkList: string[]) {
+    for (const world of checkList) {
+      if (filename.includes(world)) return true
+    }
+
+    return false
+  }
+
+  static isNotInExceptions(filename: string, checkList: string[]) {
     for (const world of checkList) {
       if (filename.includes(world)) return false
     }

@@ -41,6 +41,7 @@ interface TaskCommonSetting {
   sourceFolder: string[]
   includeExt: string[]
   exceptions?: string[]
+  includes?: string[]
 }
 
 export interface Convert extends TaskCommonSetting {
@@ -60,7 +61,7 @@ export interface Combine extends TaskCommonSetting {
   handleFolder: string
   outputFolder: string
   screenshot: boolean
-  split?: boolean 
+  split?: boolean
   skip?: boolean
   keepFiles?: boolean
 }
