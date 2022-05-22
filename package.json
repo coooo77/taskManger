@@ -1,0 +1,23 @@
+{
+  "name": "tstemplate",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "tsc && node dist/index"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@tsconfig/node16": "^1.0.2",
+    "@types/node": "^17.0.34",
+    "prettier": "^2.6.2"
+  },
+  "dependencies": {
+    "chalk": "^4.1.2"
+  },
+  "engines": {
+    "node": ">=16.13.2"
+  }
+}
