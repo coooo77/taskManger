@@ -37,6 +37,25 @@ interface SplitOption {
   showSplitCmd?: boolean
 }
 
+interface PuppeteerSetting {
+  executablePath: string
+  headless: boolean
+}
+
+interface Credentials {
+  email: string
+  pass: string
+  recoveryemail: string
+}
+
+interface UploadOption {
+  credentials: Credentials
+  puppeteerSetting: PuppeteerSetting
+  streamLisPath: string
+  showProgress?: boolean
+  skipWhenDownloadReach?: number
+}
+
 interface TaskCommonSetting {
   sourceFolder: string[]
   includeExt: string[]
@@ -70,9 +89,10 @@ export interface Upload extends TaskCommonSetting {
   type: 'upload'
   handleFolder: string
   outputFolder: string
-  skipWhenDownloadReach: number
+  addThumbnail?: boolean
   skip?: boolean
   keepFiles?: boolean
+  uploadAsDraft?: boolean
 }
 
 export interface Move extends TaskCommonSetting {
@@ -85,11 +105,11 @@ export type Task = Convert | Combine | Upload | Move
 
 export interface Config {
   pause: boolean
-  pauseUpload: boolean
   checkInterval: number
   tasks: Task[]
   screenshot: ScreenshotOption
   convert: ConvertOption
   combine: CombineOption
   split: SplitOption
+  upload: UploadOption
 }
