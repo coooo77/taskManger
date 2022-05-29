@@ -1,0 +1,93 @@
+{
+  "pause": false,
+  "checkInterval": 3600,
+  "tasks": [
+    {
+      "exceptions": ["nameYouDoNotWantToApply"],
+      "handleFolder": "E:\\path\\to\\handle",
+      "includeExt": ["mp4"],
+      "includes": ["nameYouWantToApply"],
+      "keepFiles": true,
+      "outputFolder": "E:\\path\\to\\output",
+      "screenshot": false,
+      "skip": false,
+      "sourceFolder": ["E:\\path\\to\\folder1", "E:\\path\\to\\folder2"],
+      "split": false,
+      "type": "combine"
+    },
+    {
+      "compress": false,
+      "exceptions": ["nameYouDoNotWantToApply"],
+      "handleFolder": "E:\\path\\to\\handle",
+      "includeExt": ["mp4"],
+      "includes": ["nameYouWantToApply"],
+      "keepFiles": false,
+      "mute": false,
+      "outputFolder": "E:\\path\\to\\output",
+      "screenshot": true,
+      "skip": false,
+      "sourceFolder": ["E:\\path\\to\\folder1", "E:\\path\\to\\folder2"],
+      "split": true,
+      "type": "convert"
+    },
+    {
+      "exceptions": ["nameYouDoNotWantToApply"],
+      "includeExt": ["mp4", "jpg"],
+      "includes": ["nameYouWantToApply"],
+      "skip": false,
+      "sourceFolder": ["E:\\temp"],
+      "targetFolder": "D:\\JD\\test\\source",
+      "type": "move"
+    },
+    {
+      "addThumbnail": true,
+      "exceptions": [],
+      "handleFolder": "E:\\path\\to\\handle",
+      "includeExt": ["mp4", "jpg"],
+      "includes": [],
+      "keepFiles": false,
+      "outputFolder": "E:\\path\\to\\output",
+      "skip": false,
+      "sourceFolder": ["E:\\path\\to\\folder1", "E:\\path\\to\\folder2"],
+      "type": "upload",
+      "uploadAsDraft": true
+    }
+  ],
+  "screenshot": {
+    "outputFolder": "",
+    "count": 10,
+    "timestamp": [30, "00:00:30"],
+    "interval": 10800
+  },
+  "convert": {
+    "ext": "mp4",
+    "suffixForMute": "_mute",
+    "suffixForCompress": "_compress",
+    "preset": "ultrafast",
+    "crf": 28,
+    "showConvertCmd": true
+  },
+  "combine": {
+    "suffixForCombine": "_combine",
+    "fileNameClipper": "_",
+    "showCombineCmd": true
+  },
+  "split": {
+    "splitIntervalInSec": 3600,
+    "showSplitCmd": true
+  },
+  "upload": {
+    "streamLisPath": "A:\\path\\to\\steamList.json",
+    "skipWhenDownloadReach": 5,
+    "credentials": {
+      "email": "yourEmail@example.com",
+      "pass": "yourPassword",
+      "recoveryemail": "recoveryemail@gmail.com"
+    },
+    "puppeteerSetting": {
+      "executablePath": "A:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+      "headless": true
+    },
+    "showProgress": false
+  }
+}
