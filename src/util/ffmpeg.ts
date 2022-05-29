@@ -18,6 +18,10 @@ export default class FFmpeg {
         task.stdout.on('data', (msg) => {
           resolve(Number(msg.toString()))
         })
+
+        task.stderr.on('data', (msg) => {
+          throw new Error(msg.toString())
+        })
       } catch (error) {
         Common.errorHandler(error)
 
@@ -90,14 +94,32 @@ export default class FFmpeg {
     if (timestamp) await FFmpeg.timestampScreenshot(videoPath, timestamp, outputFolder)
   }
 
-  static timestampScreenshot(videoPath: string, timestamp: (number | string)[], exportPath?: string) {
+  static spawnScreenshot(command: string) {
+    return new Promise((resolve, reject) => {
+      const task = cp.spawn(command, { shell: true })
+
+      task.stderr.on('message', (message: string) => console.log(message))
+
+      task.on('error', (error) => {
+        console.error(error)
+
+        reject()
+      })
+
+      task.on('close', (code) => {
+        resolve(code)
+      })
+    })
+  }
+
+  static async timestampScreenshot(videoPath: string, timestamp: (number | string)[], exportPath?: string) {
     const times = timestamp.map((i) => String(i))
 
     if (times.length === 0) return
 
     const command = FFmpeg.getScreenshotCmd(times, videoPath, 'timestamp', exportPath)
 
-    cp.execSync(command)
+    await FFmpeg.spawnScreenshot(command)
   }
 
   static async intervalScreenshot(videoPath: string, interval: number, exportPath?: string) {
@@ -111,7 +133,11 @@ export default class FFmpeg {
 
     const command = FFmpeg.getScreenshotCmd(times, videoPath, 'interval', exportPath)
 
-    cp.execSync(command)
+    // show cmd
+    // cp.spawnSync(command, { shell: true })
+
+    // hide cmd
+    await FFmpeg.spawnScreenshot(command)
   }
 
   static async countScreenshot(videoPath: string, count: number, exportPath?: string) {
@@ -127,7 +153,7 @@ export default class FFmpeg {
 
     const command = FFmpeg.getScreenshotCmd(times, videoPath, 'count', exportPath)
 
-    cp.execSync(command)
+    await FFmpeg.spawnScreenshot(command)
   }
 
   static getScreenshotCmd(
@@ -236,10 +262,10 @@ export default class FFmpeg {
 
     const convertFilePath = `${exportFilePath}\\${name}${suffixMute}${suffixCompress}.${ext}`
 
-    const cmd = `-i ${filePath} ${handleType}${muteConfig} ${convertFilePath}`
+    const cmd = `-i ${filePath} -y ${handleType}${muteConfig} ${convertFilePath}`
 
     if (showConvertCmd) {
-      cp.execSync(`ffmpeg ${cmd}`)
+      cp.execSync(`start ffmpeg ${cmd}`)
     } else {
       await FFmpeg.spawnConvert(cmd.split(' '))
     }

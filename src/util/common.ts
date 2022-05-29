@@ -126,31 +126,31 @@ export default class Common {
    * @param {string} from original root path
    * @param {string} to target path
    */
-  static checkMoveFiles(fileNames: string[], from: string, to: string) {
+  static async checkMoveFiles(fileNames: string[], from: string, to: string) {
     for (const fileName of fileNames) {
       const fromPath = `${from}\\${fileName}`
 
       if (fs.existsSync(fromPath)) {
         const toPath = `${to}\\${fileName}`
 
-        Common.moveFile(fromPath, toPath)
+        await Common.moveFile(fromPath, toPath)
       } else {
         Common.msg(`Can not find file at: ${fromPath}`, 'fail')
       }
     }
   }
 
-  static checkMoveFullPathFiles(fileWithFullPath: string[], to: string) {
+  static async checkMoveFullPathFiles(fileWithFullPath: string[], to: string) {
     if (fileWithFullPath.length === 0) return
 
     const filenames = fileWithFullPath.map((i) => path.parse(i).base)
 
     const from = path.parse(fileWithFullPath[0]).dir
 
-    Common.checkMoveFiles(filenames, from, to)
+    await Common.checkMoveFiles(filenames, from, to)
   }
 
-  static moveFile(fromPath: string, toPath: string) {
+  static async moveFile(fromPath: string, toPath: string) {
     const from = path.parse(fromPath)
 
     const to = path.parse(toPath)
@@ -162,7 +162,7 @@ export default class Common {
       : Common.moveFileCrossDevice.bind(Common, fromPath, toPath)
 
     try {
-      Common.reTry(moveFn)
+      await Common.reTry(moveFn)
     } catch (error: any) {
       Common.errorHandler(error)
 
@@ -184,21 +184,35 @@ export default class Common {
     }
   }
 
-  static reTry(fn: Function, maximum: number = 5, interval: number = 1) {
-    try {
-      fn()
-    } catch (error) {
-      console.log('reTry', maximum, error)
+  static async reTry(fn: Function, maximum: number = 3, interval: number = 0.5) {
+    return new Promise<void>(async (resolve, reject) => {
+      try {
+        const res = await fn()
 
-      if (maximum <= 0) throw error
+        resolve(res)
+      } catch (error: any) {
+        if (maximum <= 0) {
+          console.error(error.message)
 
-      setTimeout(Common.reTry.bind(Common, fn, --maximum), interval * 1000)
-    }
+          return resolve()
+        }
+
+        await Common.wait(interval)
+
+        await Common.reTry(fn, --maximum)
+
+        resolve()
+      }
+    })
   }
 
   static deleteFile(filePath: string, fileName: string) {
     try {
+      const source = `${filePath}\\${fileName}`
+
       fs.unlinkSync(`${filePath}\\${fileName}`)
+
+      Common.msg(`Delete file: ${source}`, 'success')
     } catch (error) {
       Common.errorHandler(error)
 

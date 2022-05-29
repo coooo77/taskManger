@@ -1,6 +1,5 @@
-import fs from 'fs'
-import path from 'path'
 import Main from '../util/main'
+import { join, parse } from 'path'
 import FFmpeg from '../util/ffmpeg'
 import Common from '../util/common'
 import { Combine } from '../types/config'
@@ -21,9 +20,15 @@ const config = Main.getConfig()
 
 const { fileNameClipper } = config.combine
 
+Common.msg('Start to combine videos')
+
 Object.entries(getCombineList(handleFolder))
   .reduce(startToCombine, Promise.resolve())
-  .finally(() => process.exit(0))
+  .finally(() => {
+    Common.msg('Combine files done', 'success')
+
+    process.exit(0)
+  })
 
 function getCombineList(source: string) {
   const target = Common.getTargetFiles([source], includeExt, exceptions)
@@ -39,7 +44,7 @@ function getCombineList(source: string) {
 
     const userID = isPixivDefaultAccount ? `user_${words[1]}` : words[0]
 
-    acc[userID] = (acc[userID] || []).concat(path.join(source, cur))
+    acc[userID] = (acc[userID] || []).concat(join(source, cur))
 
     return acc
   }, {} as ListToHandle)
@@ -78,25 +83,31 @@ async function combine(userID: string, filesPath: string[]) {
  * @param combinedFilePath videos combined, may have been splitted
  */
 async function handleCombineEnd(sourceFilesPath: string[], combinedFilePath?: string[]) {
+  await Common.wait(0.5)
+
   const isCombined = combinedFilePath?.length !== 0
 
   if (!isCombined) {
-    Common.checkMoveFullPathFiles(sourceFilesPath, outputFolder)
+    await Common.checkMoveFullPathFiles(sourceFilesPath, outputFolder)
   } else {
     if (!combinedFilePath?.length) return
 
     if (keepFiles) {
-      Common.checkMoveFullPathFiles(sourceFilesPath, outputFolder)
+      await Common.checkMoveFullPathFiles(sourceFilesPath, outputFolder)
     } else {
       Common.deleteFullPathFiles(sourceFilesPath)
     }
 
-    Common.checkMoveFullPathFiles(combinedFilePath, outputFolder)
+    await Common.checkMoveFullPathFiles(combinedFilePath, outputFolder)
 
     if (!screenshot) return
 
     for (const files of combinedFilePath) {
-      await FFmpeg.screenshot(files)
+      const { base } = parse(files)
+
+      const outPutFilePath = join(outputFolder, base)
+
+      await FFmpeg.screenshot(outPutFilePath)
     }
   }
 }

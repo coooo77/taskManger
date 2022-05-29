@@ -25,7 +25,6 @@ export default class Main {
 
   static getConfig() {
     try {
-      console.log()
       return Common.getFile(Main.configPath, 'configure') as Config
     } catch (e) {
       Main.setError('can not find configure.json', Main.getConfig)
@@ -58,7 +57,7 @@ export default class Main {
   }
 
   static async multiTask(tasks: Task[]) {
-    if (Main.isHandling) return
+    if (Main.isHandling) return Common.msg('Multi task is on going, stop new task')
 
     Main.isHandling = true
 
@@ -81,7 +80,7 @@ export default class Main {
     return target.sort((a, b) => order[a.type] - order[b.type])
   }
 
-  static taskSelector(tasks: Task) {
+  static taskSelector(tasks: Task): Promise<any> {
     switch (tasks.type) {
       case 'move':
         return Main.handleMove(tasks)
@@ -94,10 +93,12 @@ export default class Main {
     }
   }
 
-  static taskWrapper(callback: Function): Promise<void> {
+  static async taskWrapper(callback: Function): Promise<void> {
     return new Promise((resolve, reject) => {
       try {
-        resolve(callback())
+        const res = callback()
+
+        resolve(res)
       } catch (error: any) {
         Main.setError(error, Main.taskWrapper)
 
@@ -107,7 +108,7 @@ export default class Main {
   }
 
   static async uploadTask(tasks: Task[]) {
-    if (Main.isUploading) return
+    if (Main.isUploading) return Common.msg('Upload task is on going, stop new task')
 
     const target = tasks.filter((t) => t.type === 'upload') as Upload[]
 
@@ -119,48 +120,71 @@ export default class Main {
   }
 
   static async scriptHandler(task: Exclude<Task, Move>, type: 'upload' | 'convert' | 'combine', fn: Function) {
-    if (!Main.isAbleRunTask(task)) return Common.msg(`no files at: ${task.handleFolder}, stop ${type}`)
+    const isAbleRunTask = await Main.isAbleRunTask(task)
+
+    if (!isAbleRunTask) return Common.msg(`no files at: ${task.handleFolder}, stop ${type}`)
 
     Common.msg(`Start to ${type} files at： ${task.handleFolder}`)
 
     await Main.runScript(task, `${type}.js`, fn)
   }
 
-  static handleUpload(task: Upload) {
-    Main.scriptHandler(task, 'upload', Main.handleUpload)
+  static async handleUpload(task: Upload) {
+    if (task.skip) return Common.msg(`Task: ${task.type} skipped due to config`, 'warn')
+
+    await Main.scriptHandler(task, 'upload', Main.handleUpload)
   }
 
-  static handleConvert(task: Convert) {
-    Main.scriptHandler(task, 'convert', Main.handleConvert)
+  static async handleConvert(task: Convert) {
+    await Main.scriptHandler(task, 'convert', Main.handleConvert)
   }
 
-  static handleCombine(task: Combine) {
-    Main.scriptHandler(task, 'combine', Main.handleCombine)
+  static async handleCombine(task: Combine) {
+    await Main.scriptHandler(task, 'combine', Main.handleCombine)
   }
 
-  static handleMove(task: Task) {
+  static async handleMove(task: Task) {
     const { sourceFolder, includeExt, includes, exceptions, skip, type } = task
 
-    if (skip || sourceFolder.length === 0) return
+    if (skip) {
+      return Common.msg(`Task: ${type} skipped due to config`, 'warn')
+    }
+
+    if (sourceFolder.length === 0) {
+      return Common.msg(`Task: ${type} skipped due to no files at source folder`)
+    }
 
     const files = Common.getTargetFiles(sourceFolder, includeExt, exceptions, includes)
 
-    if (Object.keys(files).length === 0) return
+    if (Object.keys(files).length === 0) {
+      return Common.msg(`Task: ${type} skipped due to no target files`)
+    }
 
     const destination = type === 'move' ? task.targetFolder : task.handleFolder
 
     Common.msg(`Start to move files to： ${destination}`)
 
-    // TODO: 檢查會不會造成同步進行，是的話要改成逐步
-    Object.entries(files).forEach(([source, filenames]) => Common.checkMoveFiles(filenames, source, destination))
+    const jobs = Object.entries(files).map(([source, filenames]) =>
+      Common.checkMoveFiles(filenames, source, destination)
+    )
+
+    await Promise.all(jobs)
   }
 
-  private static isAbleRunTask(task: Exclude<Task, Move>) {
-    Main.handleMove(task)
+  static async isAbleRunTask(task: Exclude<Task, Move>) {
+    if (task.skip) {
+      Common.msg(`Task: ${task.type} skipped due to config`, 'warn')
 
-    const targetFiles = fs.readdirSync(task.handleFolder)
+      return false
+    }
 
-    return targetFiles.length !== 0
+    await Main.handleMove(task)
+
+    const { handleFolder, includeExt, includes, exceptions } = task
+
+    const files = Common.getTargetFiles([handleFolder], includeExt, exceptions, includes)
+
+    return Object.values(files).length !== 0
   }
 
   static runScript(task: Task, scriptName: string, fn: Function): Promise<void> {

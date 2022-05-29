@@ -1,7 +1,9 @@
-import { join } from 'path'
+import { join, parse } from 'path'
 import FFmpeg from '../util/ffmpeg'
 import Common from '../util/common'
 import { Convert } from '../types/config'
+
+Common.msg('Start to convert videos')
 
 const payload = process.argv.splice(2)
 
@@ -13,12 +15,20 @@ const target = Common.getTargetFiles([handleFolder], includeExt, exceptions)
 
 const files = Object.values(target)[0]
 
-if (files.length === 0) process.exit(0)
+if (!files || files.length === 0) {
+  Common.msg('No files to convert. stop task')
+
+  process.exit(0)
+}
 
 files
   .map((filename) => join(handleFolder, filename))
   .reduce((acc, filename) => acc.then(() => starConvert(filename)), Promise.resolve())
-  .finally(() => process.exit(0))
+  .finally(() => {
+    Common.msg('Convert files done', 'success')
+
+    process.exit(0)
+  })
 
 async function starConvert(source: string) {
   try {
@@ -43,19 +53,25 @@ async function starConvert(source: string) {
 }
 
 async function handleConvertEnd(sourceFilesPath: string[], convertFilePath?: string[]) {
+  await Common.wait(0.5)
+
   if (!convertFilePath?.length) return
 
   if (keepFiles) {
-    Common.checkMoveFullPathFiles(sourceFilesPath, outputFolder)
+    await Common.checkMoveFullPathFiles(sourceFilesPath, outputFolder)
   } else {
     Common.deleteFullPathFiles(sourceFilesPath)
   }
 
-  Common.checkMoveFullPathFiles(convertFilePath, outputFolder)
+  await Common.checkMoveFullPathFiles(convertFilePath, outputFolder)
 
   if (!screenshot) return
 
   for (const files of convertFilePath) {
-    await FFmpeg.screenshot(files)
+    const { base } = parse(files)
+
+    const outPutFilePath = join(outputFolder, base)
+
+    await FFmpeg.screenshot(outPutFilePath)
   }
 }
