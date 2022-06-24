@@ -43,11 +43,21 @@ export default class Main {
 
     Main.upDateConfig()
 
-    Main.handleTask()
+    if (Main.config.pause) {
+      Common.msg('task paused due to config', 'warn')
+
+      Main.setTimer()
+    } else {
+      Main.handleTask()
+    }
   }
 
   static handleTask() {
-    const tasks = Main.getTasks()
+    const tasks = Main.getTasks().filter((i) => {
+      if (i.skip) Common.msg(`Task: ${i.type} skipped due to config`, 'warn')
+
+      return !i.skip
+    })
 
     Main.multiTask(tasks)
 
@@ -130,8 +140,6 @@ export default class Main {
   }
 
   static async handleUpload(task: Upload) {
-    if (task.skip) return Common.msg(`Task: ${task.type} skipped due to config`, 'warn')
-
     await Main.scriptHandler(task, 'upload', Main.handleUpload)
   }
 
@@ -144,11 +152,7 @@ export default class Main {
   }
 
   static async handleMove(task: Task) {
-    const { sourceFolder, includeExt, includes, exceptions, skip, type } = task
-
-    if (skip) {
-      return Common.msg(`Task: ${type} skipped due to config`, 'warn')
-    }
+    const { sourceFolder, includeExt, includes, exceptions, type } = task
 
     if (sourceFolder.length === 0) {
       return Common.msg(`Task: ${type} skipped due to no files at source folder`)
@@ -172,12 +176,6 @@ export default class Main {
   }
 
   static async isAbleRunTask(task: Exclude<Task, Move>) {
-    if (task.skip) {
-      Common.msg(`Task: ${task.type} skipped due to config`, 'warn')
-
-      return false
-    }
-
     await Main.handleMove(task)
 
     const { handleFolder, includeExt, includes, exceptions } = task

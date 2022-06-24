@@ -1,3 +1,4 @@
+import fs from 'fs'
 import { join, parse } from 'path'
 import FFmpeg from '../util/ffmpeg'
 import Common from '../util/common'
@@ -32,6 +33,8 @@ files
 
 async function starConvert(source: string) {
   try {
+    if(!fs.existsSync(source)) return Common.msg(`Can not find source: ${source} for convert`, 'warn')
+
     const convertFilePath = await FFmpeg.convert(source, task, outputFolder)
 
     if (!split) return await handleConvertEnd([source], [convertFilePath])
