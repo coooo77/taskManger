@@ -1,6 +1,7 @@
 import fs from 'fs'
 import path from 'path'
 import chalk from 'chalk'
+import readline from 'readline'
 
 type FolderPath = string
 
@@ -275,5 +276,20 @@ export default class Common {
       .readdirSync(source, { withFileTypes: true })
       .filter((dirent) => dirent.isDirectory())
       .map(({ name }) => (withSource ? path.join(source, name) : name))
+  }
+
+  static getPromptFn(msg: string) {
+    const rl = readline.createInterface({
+      input: process.stdin,
+      output: process.stdout,
+      terminal: false
+    })
+
+    return () => new Promise<string>((resolve, reject) => {
+      rl.question(msg, (reply) => {
+        rl.close()
+        resolve(reply)
+      })
+    })
   }
 }

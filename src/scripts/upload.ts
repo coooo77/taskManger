@@ -4,13 +4,13 @@ import Common from '../util/common'
 import { Upload } from '../types/config'
 import { readFileSync, readdirSync } from 'fs'
 import { upload } from 'youtube-videos-uploader'
-import { VideoProgress, Video } from 'youtube-videos-uploader/dist/types'
+import { VideoProgress, Video, MessageTransport } from 'youtube-videos-uploader/dist/types'
 
 function getLiveList(listPath: string) {
   try {
     const streamList = readFileSync(listPath)
 
-    return JSON.parse(streamList.toString()) as { ids: string[] }
+    return JSON.parse(streamList.toString()) as { liveStreams: { [key: string]: any } }
   } catch (error) {
     return
   }
@@ -25,13 +25,14 @@ function getUploadList(source: string) {
   }
 }
 
-async function handleUpload(videos: string[], thumbnails: string[]) {
+async function handleUpload(videos: string[], thumbnails: string[], messageTransport?: MessageTransport) {
   try {
     checkInternetUsage()
 
     const payload = videos.map((fileFullPath) => getPayload(fileFullPath, thumbnails))
 
-    await upload(credentials, payload, puppeteerSetting).catch((e) => {
+    await upload(credentials, payload, puppeteerSetting, messageTransport).catch((e) => {
+      // FIXME: upload ERROR: TimeoutError: waiting for waiting for file chooser failed: timeout 60000ms exceeded
       console.log('upload ERROR:', e)
     })
   } catch (error: any) {
@@ -51,9 +52,7 @@ function getPayload(source: string, thumbnailSource: string[]): Video {
   const thumbnails = thumbnailSource.filter((filename) => filename.includes(name))
 
   const onProgress = showProgress
-    ? (progress: VideoProgress) => {
-        Common.msg(`upload file: ${source}, progress: ${progress.progress}`)
-      }
+    ? (videoProgress: VideoProgress) => Common.msg(`upload file: ${source}, progress: ${videoProgress.progress}`)
     : undefined
 
   const onSuccess = async (videoUrl: string) => {
@@ -79,72 +78,11 @@ function getPayload(source: string, thumbnailSource: string[]): Video {
     onSuccess,
     onProgress,
     path: source,
-    title: name,
+    title: name.replaceAll('_', ' '),
     uploadAsDraft,
     skipProcessingWait: true,
     description: new Date().toJSON()
   }
-}
-
-async function startUpload(source: string, thumbnailSource: string[]) {
-  try {
-    checkInternetUsage()
-
-    const { name } = parse(source)
-
-    const thumbnails = thumbnailSource.filter((filename) => filename.includes(name))
-
-    const thumbnail = addThumbnail ? thumbnails[0] : undefined
-
-    const onProgress = showProgress
-      ? (progress: VideoProgress) => {
-          Common.msg(`upload file: ${source}, progress: ${progress.progress}`)
-        }
-      : undefined
-
-    const onSuccess = (videoUrl: string) => {
-      Common.msg(`upload file: ${source}, success: ${videoUrl}`, 'success')
-    }
-
-    const videoInfo: Video = {
-      thumbnail,
-      onSuccess,
-      onProgress,
-      path: source,
-      title: name,
-      uploadAsDraft,
-      skipProcessingWait: true,
-      description: new Date().toJSON()
-    }
-
-    const isUploadSuccess = await upload(credentials, [videoInfo], puppeteerSetting)
-
-    await Common.wait(0.5)
-
-    if (isUploadSuccess[0].length === 0) return failUpload(source)
-
-    const resources = thumbnails.concat(source)
-
-    if (keepFiles) return await Common.checkMoveFullPathFiles(resources, outputFolder)
-
-    Common.deleteFullPathFiles(resources)
-  } catch (error: any) {
-    Common.msg(error.message, 'error')
-
-    Common.errorHandler(error)
-  }
-}
-
-function failUpload(source: string) {
-  const message = `Fail to upload video : ${source}`
-
-  Common.msg(message, 'warn')
-
-  Common.errorHandler({ message })
-
-  stopUpload()
-
-  process.exit(0)
 }
 
 function stopUpload() {
@@ -158,24 +96,36 @@ function stopUpload() {
 }
 
 function checkInternetUsage() {
-  const liveList = getLiveList(streamLisPath)
+  const liveList = getLiveList(streamListPath)
 
   if (!liveList) return Common.msg('no liveList available')
 
-  if (skipWhenDownloadReach && liveList.ids.length >= skipWhenDownloadReach) {
+  const liveListLength = Object.keys(liveList.liveStreams)
+
+  if (skipWhenDownloadReach && liveListLength.length >= skipWhenDownloadReach) {
     Common.msg('Busy internet usage, skip upload')
 
     process.exit(0)
   } else {
-    Common.msg(`Internet usage is ${liveList.ids.length}, limit is ${skipWhenDownloadReach}`)
+    Common.msg(`Internet usage is ${liveListLength.length}, limit is ${skipWhenDownloadReach}`)
   }
+}
+
+function groupVideos(source: string[], unit = 10) {
+  const group = []
+
+  for (let i = 0; i < source.length; i += 10) {
+    group.push(source.slice(i, i + 10))
+  }
+
+  return group
 }
 
 const payload = process.argv.splice(2)
 
 const task = JSON.parse(payload[0]) as Upload
 
-const { credentials, puppeteerSetting, streamLisPath, skipWhenDownloadReach, showProgress } = Main.getConfig().upload
+const { credentials, puppeteerSetting, streamListPath, skipWhenDownloadReach, showProgress } = Main.getConfig().upload
 
 const { handleFolder, keepFiles, outputFolder, addThumbnail, uploadAsDraft } = task
 
@@ -187,14 +137,22 @@ if (videosToUpload.length === 0) {
   process.exit(0)
 }
 
-// videosToUpload
-//   .reduce((acc, cur) => acc.then(() => startUpload(cur, imagesToUpload)), Promise.resolve())
-//   .finally(() => process.exit(0))
+const messageTransport: MessageTransport = {
+  log: console.log,
+  userAction: console.log,
+  onSmsVerificationCodeSent: Common.getPromptFn('Enter the code that was sent to you via SMS: ')
+}
+
+const videoGroup = groupVideos(videosToUpload)
 
 Common.msg('Start to upload videos')
 
-handleUpload(videosToUpload, imagesToUpload).then(() => {
-  Common.msg('Upload complete', 'success')
+videoGroup
+  .reduce((acc, cur) => acc.then(() => handleUpload(cur, imagesToUpload, messageTransport)), Promise.resolve())
+  .then(Common.msg.bind(Common, 'Upload complete', 'success'))
+  .catch(Common.errorHandler)
+  .finally(async () => {
+    await Common.wait(5)
 
-  process.exit(0)
-})
+    process.exit(0)
+  })
