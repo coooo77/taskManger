@@ -4,7 +4,8 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "tsc && node dist/index"
+    "test": "tsc && node dist/index",
+    "pm2": "tsc && pm2 start dist/index.js --name \"task_manger\""
   },
   "keywords": [],
   "author": "",
