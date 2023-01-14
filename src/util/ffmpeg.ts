@@ -47,17 +47,22 @@ export default class FFmpeg {
   }
 
   /**
-   * check duration of source video is less than length of split, if it is than split it and return splitted filenames, or return empty array.
+   * check duration of source video is less than length of split, if it is then split it and return splitted filenames, or return empty array.
    * @param videoPath path of video to handle
    * @param exportPath path to export video, optional
    * @returns {string[]} splitted filenames with full path
    */
   static async checkAndSplitVideo(videoPath: string, exportPath?: string): Promise<string[]> {
-    const { splitIntervalInSec } = Main.getConfig().split
+    const { splitIntervalInSec, invalidMaximumDuration } = Main.getConfig().split
 
     const videoDuration = await FFmpeg.getMediaDuration(videoPath)
 
-    if (Number.isNaN(videoDuration) || videoDuration <= splitIntervalInSec) return []
+    if (
+      Number.isNaN(videoDuration) ||
+      videoDuration <= splitIntervalInSec ||
+      (invalidMaximumDuration && videoDuration > invalidMaximumDuration)
+    )
+      return []
 
     const { name, ext, dir } = path.parse(videoPath)
 

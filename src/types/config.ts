@@ -34,6 +34,7 @@ interface CombineOption {
 
 interface SplitOption {
   splitIntervalInSec: number
+  invalidMaximumDuration?: number
   showSplitCmd?: boolean
 }
 
@@ -51,7 +52,7 @@ interface Credentials {
 interface UploadOption {
   credentials: Credentials
   puppeteerSetting: PuppeteerSetting
-  streamLisPath: string
+  streamListPath: string
   showProgress?: boolean
   skipWhenDownloadReach?: number
 }
