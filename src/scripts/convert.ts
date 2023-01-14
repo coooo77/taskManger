@@ -33,7 +33,7 @@ files
 
 async function starConvert(source: string) {
   try {
-    if(!fs.existsSync(source)) return Common.msg(`Can not find source: ${source} for convert`, 'warn')
+    if (!fs.existsSync(source)) return Common.msg(`Can not find source: ${source} for convert`, 'warn')
 
     const convertFilePath = await FFmpeg.convert(source, task, outputFolder)
 
@@ -56,7 +56,7 @@ async function starConvert(source: string) {
 }
 
 async function handleConvertEnd(sourceFilesPath: string[], convertFilePath?: string[]) {
-  await Common.wait(0.5)
+  await Common.wait(5)
 
   if (!convertFilePath?.length) return
 

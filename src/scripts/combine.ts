@@ -83,7 +83,7 @@ async function combine(userID: string, filesPath: string[]) {
  * @param combinedFilePath videos combined, may have been splitted
  */
 async function handleCombineEnd(sourceFilesPath: string[], combinedFilePath?: string[]) {
-  await Common.wait(0.5)
+  await Common.wait(5)
 
   const isCombined = combinedFilePath?.length !== 0
 

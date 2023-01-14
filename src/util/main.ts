@@ -73,9 +73,15 @@ export default class Main {
 
     const target = Main.getTargetTasks(tasks)
 
-    await Main.taskWrapper(() => target.reduce((acc, cur) => acc.then(() => Main.taskSelector(cur)), Promise.resolve()))
-
-    Main.isHandling = false
+    try {
+      await Main.taskWrapper(() =>
+        target.reduce((acc, cur) => acc.then(() => Main.taskSelector(cur)), Promise.resolve())
+      )
+    } catch (error) {
+      Main.setError(error, Main.multiTask)
+    } finally {
+      Main.isHandling = false
+    }
   }
 
   static getTargetTasks(tasks: Task[]) {
@@ -124,9 +130,15 @@ export default class Main {
 
     Main.isUploading = true
 
-    await Main.taskWrapper(() => target.reduce((acc, cur) => acc.then(() => Main.handleUpload(cur)), Promise.resolve()))
-
-    Main.isUploading = false
+    try {
+      await Main.taskWrapper(() =>
+        target.reduce((acc, cur) => acc.then(() => Main.handleUpload(cur)), Promise.resolve())
+      )
+    } catch (error) {
+      Main.setError(error, Main.uploadTask)
+    } finally {
+      Main.isUploading = false
+    }
   }
 
   static async scriptHandler(task: Exclude<Task, Move>, type: 'upload' | 'convert' | 'combine', fn: Function) {
