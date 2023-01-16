@@ -65,7 +65,10 @@
     "suffixForCompress": "_compress",
     "preset": "ultrafast",
     "crf": 28,
-    "showConvertCmd": true
+    "showConvertCmd": true,
+    "customCrf": {
+      "nameOfStreamer": 18
+    }
   },
   "combine": {
     "suffixForCombine": "_combine",
@@ -77,7 +80,7 @@
     "showSplitCmd": true
   },
   "upload": {
-    "streamLisPath": "A:\\path\\to\\steamList.json",
+    "streamListPath": "A:\\path\\to\\steamList.json",
     "skipWhenDownloadReach": 5,
     "credentials": {
       "email": "yourEmail@example.com",

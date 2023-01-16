@@ -247,28 +247,25 @@ export default class FFmpeg {
   }
 
   static async convert(filePath: string, task: Convert, exportPath?: string) {
+    const { dir, name } = path.parse(filePath)
     const { convert } = Main.getConfig()
-
-    const { crf, ext, preset, showConvertCmd, suffixForCompress, suffixForMute } = convert
+    const { crf, ext, preset, showConvertCmd, suffixForCompress, suffixForMute, customCrf } = convert
 
     const { mute, compress } = task
-
     const muteConfig = mute ? ' -an' : ''
-
-    const { dir, name } = path.parse(filePath)
-
-    const exportFilePath = exportPath || dir
-
+    const suffixMute = mute ? suffixForMute : ''
     const suffixCompress = compress ? suffixForCompress : ''
 
-    const suffixMute = mute ? suffixForMute : ''
+    const streamerName = name.split('_')[0]
+    const crfForStreamer = customCrf?.[streamerName]
+    const processCrf = crfForStreamer || crf
+    const suffixCrf = crfForStreamer ? `_crf${processCrf}` : ''
 
-    const handleType = compress ? `-vcodec libx264 -crf ${crf} -preset ${preset}` : `-c copy`
-
-    const convertFilePath = `${exportFilePath}\\${name}${suffixMute}${suffixCompress}.${ext}`
+    const exportFilePath = exportPath || dir
+    const handleType = compress ? `-vcodec libx264 -crf ${processCrf} -preset ${preset}` : `-c copy`
+    const convertFilePath = `${exportFilePath}\\${name}${suffixMute}${suffixCompress}${suffixCrf}.${ext}`
 
     const cmd = `-i ${filePath} -y ${handleType}${muteConfig} ${convertFilePath}`
-
     if (showConvertCmd) {
       cp.execSync(`start ffmpeg ${cmd}`)
     } else {

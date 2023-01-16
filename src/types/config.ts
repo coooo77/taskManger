@@ -17,6 +17,7 @@ interface ConvertOption {
   preset: Preset
   crf: number
   showConvertCmd?: boolean
+  customCrf?: Record<string, number>
 }
 
 interface ScreenshotOption {
