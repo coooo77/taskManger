@@ -81,7 +81,8 @@ function getPayload(source: string, thumbnailSource: string[]): Video {
     title: name.replaceAll('_', ' '),
     uploadAsDraft,
     skipProcessingWait: true,
-    description: new Date().toJSON()
+    description: new Date().toJSON(),
+    isNotForKid: true
   }
 }
 
