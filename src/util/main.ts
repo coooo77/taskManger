@@ -63,6 +63,8 @@ export default class Main {
 
     Main.uploadTask(tasks)
 
+    Main.moveTask(tasks)
+
     Main.setTimer()
   }
 
@@ -85,12 +87,11 @@ export default class Main {
   }
 
   static getTargetTasks(tasks: Task[]) {
-    const target = tasks.filter((t) => t.type !== 'upload') as Exclude<Task, Upload>[]
+    const target = tasks.filter((t) => t.type !== 'upload' && t.type !== 'move') as Exclude<Task, Upload | Move>[]
 
     const order = {
-      move: 1,
-      convert: 2,
-      combine: 3
+      convert: 1,
+      combine: 2
     }
 
     return target.sort((a, b) => order[a.type] - order[b.type])
@@ -98,8 +99,6 @@ export default class Main {
 
   static taskSelector(tasks: Task): Promise<any> {
     switch (tasks.type) {
-      case 'move':
-        return Main.handleMove(tasks)
       case 'combine':
         return Main.handleCombine(tasks)
       case 'convert':
@@ -138,6 +137,16 @@ export default class Main {
       Main.setError(error, Main.uploadTask)
     } finally {
       Main.isUploading = false
+    }
+  }
+
+  static async moveTask(tasks: Task[]) {
+    const target = tasks.filter((t) => t.type === 'move') as Move[]
+
+    try {
+      await Main.taskWrapper(() => target.reduce((acc, cur) => acc.then(() => Main.handleMove(cur)), Promise.resolve()))
+    } catch (error) {
+      Main.setError(error, Main.moveTask)
     }
   }
 
