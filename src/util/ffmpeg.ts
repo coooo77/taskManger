@@ -5,35 +5,29 @@ import Common from './common'
 import cp from 'child_process'
 import { Convert } from '../types/config'
 
+type GetMediaDurationRes<T extends boolean> = T extends boolean ? number : string
+
 export default class FFmpeg {
-  static getMediaDuration(videoPath: string, showInSeconds = true): Promise<number> {
-    return new Promise((resolve, reject) => {
-      try {
-        const options = `-v error${
-          showInSeconds ? ' ' : ' -sexagesimal '
-        }-show_entries format=duration -of default=noprint_wrappers=1:nokey=1 ${videoPath}`
+  static getMediaDuration<T extends boolean = true>(videoPath: string, showInSeconds = true): GetMediaDurationRes<T> {
+    let command = `ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 `
 
-        const task = cp.spawn('ffprobe', options.split(' '))
+    if (!showInSeconds) command += ' -sexagesimal'
 
-        task.stdout.on('data', (msg) => {
-          resolve(Number(msg.toString()))
-        })
+    command += ` ${videoPath}`
 
-        task.stderr.on('data', (msg) => {
-          throw new Error(msg.toString())
-        })
-      } catch (error) {
-        Common.errorHandler(error)
+    const stdout = cp.execSync(command).toString()
 
-        reject(error)
-      }
-    })
+    return (showInSeconds ? parseFloat(stdout) : stdout) as GetMediaDurationRes<T>
   }
 
-  static spawnSplit(command: string, cwd: string) {
+  static spawnFFmpeg(command: string, option: { cwd?: string; shell?: boolean } = {}) {
     return new Promise((resolve, reject) => {
       try {
-        const task = cp.spawn('ffmpeg', command.split(' '), { cwd })
+        const hasOptions = Object.keys(option).length !== 0
+
+        const task = hasOptions
+          ? cp.spawn('ffmpeg', command.split(' '), option)
+          : cp.spawn('ffmpeg', command.split(' '))
 
         task.stderr.on('data', (data) => console.log('stderr', data.toString()))
 
@@ -79,7 +73,7 @@ export default class FFmpeg {
     if (config.split.showSplitCmd) {
       cp.execSync(`start ${command}`, { cwd: dir })
     } else {
-      await FFmpeg.spawnSplit(options, dir)
+      await FFmpeg.spawnFFmpeg(options, { cwd: dir })
     }
 
     return Array(Math.ceil(videoDuration / splitIntervalInSec))
@@ -99,24 +93,6 @@ export default class FFmpeg {
     if (timestamp) await FFmpeg.timestampScreenshot(videoPath, timestamp, outputFolder)
   }
 
-  static spawnScreenshot(command: string) {
-    return new Promise((resolve, reject) => {
-      const task = cp.spawn(command, { shell: true })
-
-      task.stderr.on('message', (message: string) => console.log(message))
-
-      task.on('error', (error) => {
-        console.error(error)
-
-        reject()
-      })
-
-      task.on('close', (code) => {
-        resolve(code)
-      })
-    })
-  }
-
   static async timestampScreenshot(videoPath: string, timestamp: (number | string)[], exportPath?: string) {
     const times = timestamp.map((i) => String(i))
 
@@ -124,7 +100,7 @@ export default class FFmpeg {
 
     const command = FFmpeg.getScreenshotCmd(times, videoPath, 'timestamp', exportPath)
 
-    await FFmpeg.spawnScreenshot(command)
+    cp.spawnSync(command, { shell: true })
   }
 
   static async intervalScreenshot(videoPath: string, interval: number, exportPath?: string) {
@@ -138,11 +114,7 @@ export default class FFmpeg {
 
     const command = FFmpeg.getScreenshotCmd(times, videoPath, 'interval', exportPath)
 
-    // show cmd
-    // cp.spawnSync(command, { shell: true })
-
-    // hide cmd
-    await FFmpeg.spawnScreenshot(command)
+    cp.spawnSync(command, { shell: true })
   }
 
   static async countScreenshot(videoPath: string, count: number, exportPath?: string) {
@@ -158,7 +130,7 @@ export default class FFmpeg {
 
     const command = FFmpeg.getScreenshotCmd(times, videoPath, 'count', exportPath)
 
-    await FFmpeg.spawnScreenshot(command)
+    cp.spawnSync(command, { shell: true })
   }
 
   static getScreenshotCmd(
@@ -217,35 +189,18 @@ export default class FFmpeg {
 
     const outPut = `${dir}\\${name}${suffixForCombine}${ext}`
 
-    const cmd = `-f concat -safe 0 -i ${listPath} -c copy ${outPut}`
+    const cmd = `-f concat -safe 0 -i ${listPath} -y -c copy ${outPut}`
 
     if (showCombineCmd) {
       cp.execSync(`start ffmpeg ${cmd}`, { cwd: dir })
     } else {
-      await FFmpeg.spawnCombine(cmd.split(' '), dir)
+      await FFmpeg.spawnFFmpeg(cmd, { cwd: dir })
     }
 
     FFmpeg.deleteCombineList(listPath)
 
     return outPut
   }
-
-  static spawnCombine(command: string[], cwd: string) {
-    return new Promise((resolve, reject) => {
-      try {
-        const task = cp.spawn('ffmpeg', command, { cwd })
-
-        task.stderr.on('data', (msg) => console.log(msg.toString()))
-
-        task.on('close', resolve)
-      } catch (error) {
-        Common.errorHandler(error)
-
-        reject()
-      }
-    })
-  }
-
   static async convert(filePath: string, task: Convert, exportPath?: string) {
     const { dir, name } = path.parse(filePath)
     const { convert } = Main.getConfig()
@@ -269,25 +224,9 @@ export default class FFmpeg {
     if (showConvertCmd) {
       cp.execSync(`start ffmpeg ${cmd}`)
     } else {
-      await FFmpeg.spawnConvert(cmd.split(' '))
+      await FFmpeg.spawnFFmpeg(cmd)
     }
 
     return convertFilePath
-  }
-
-  static spawnConvert(command: string[]) {
-    return new Promise((resolve, reject) => {
-      try {
-        const task = cp.spawn('ffmpeg', command)
-
-        task.stderr.on('data', (msg) => console.log(msg.toString()))
-
-        task.on('close', resolve)
-      } catch (error) {
-        Common.errorHandler(error)
-
-        reject()
-      }
-    })
   }
 }
