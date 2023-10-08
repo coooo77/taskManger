@@ -14,7 +14,7 @@ export interface FilesToHandle {
 export default class Common {
   static errorLogPath = path.join(__dirname, '../log')
 
-  static msg(msg: string, msgType: 'warn' | 'info' | 'success' | 'fail' | 'error' = 'info') {
+  static msg(msg: string, msgType: 'debug' | 'warn' | 'info' | 'success' | 'fail' | 'error' = 'info') {
     const { log } = console
 
     const type = ` ${msgType.toUpperCase()} `
@@ -35,6 +35,8 @@ export default class Common {
       case 'error':
         log(chalk.bgRed(type), chalk.bgRed.yellow(msg))
         break
+      case 'debug':
+        log(chalk.bgCyan(type), chalk.bgRed.yellow(msg))
       default:
         break
     }
@@ -285,11 +287,12 @@ export default class Common {
       terminal: false
     })
 
-    return () => new Promise<string>((resolve, reject) => {
-      rl.question(msg, (reply) => {
-        rl.close()
-        resolve(reply)
+    return () =>
+      new Promise<string>((resolve) => {
+        rl.question(msg, (reply) => {
+          rl.close()
+          resolve(reply)
+        })
       })
-    })
   }
 }
