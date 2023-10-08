@@ -4,8 +4,8 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "tsc && node dist/index",
-    "pm2": "tsc && pm2 start dist/index.js --name \"task_manger\""
+    "test": "npx tsc && node dist/index",
+    "pm2": "npx tsc && pm2 start dist/index.js --name \"task_manger\""
   },
   "keywords": [],
   "author": "",
@@ -17,6 +17,7 @@
   },
   "dependencies": {
     "chalk": "^4.1.2",
+    "typescript": "^5.2.2",
     "youtube-videos-uploader": "^2.0.10"
   },
   "engines": {
