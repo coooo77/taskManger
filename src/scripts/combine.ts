@@ -38,7 +38,7 @@ function getCombineList(source: string) {
   if (files.length === 0) return {}
 
   return files.reduce((acc, cur) => {
-    const isPixivDefaultAccount = files.includes('user_')
+    const isPixivDefaultAccount = cur.includes('user_')
 
     const words = cur.split(fileNameClipper)
 
