@@ -1,7 +1,10 @@
 import fs from 'fs'
 import path from 'path'
 import chalk from 'chalk'
+import * as url from 'url'
 import readline from 'readline'
+
+const __dirname = url.fileURLToPath(new URL('.', import.meta.url))
 
 type FolderPath = string
 

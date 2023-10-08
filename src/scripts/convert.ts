@@ -1,8 +1,8 @@
 import fs from 'fs'
 import { join, parse } from 'path'
-import FFmpeg from '../util/ffmpeg'
-import Common from '../util/common'
-import { Convert } from '../types/config'
+import FFmpeg from '../util/ffmpeg.js'
+import Common from '../util/common.js'
+import { Convert } from '../types/config.js'
 
 process.once('message', (task: Convert) => {
   /** init */

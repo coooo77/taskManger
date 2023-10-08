@@ -1,9 +1,11 @@
 {
   "name": "tstemplate",
   "version": "1.0.0",
+  "type": "module",
   "description": "",
   "main": "index.js",
   "scripts": {
+    "dev": "npx ts-node --esm ./src/index.ts",
     "test": "npx tsc && node dist/index",
     "pm2": "npx tsc && pm2 start dist/index.js --name \"task_manger\""
   },
@@ -13,10 +15,13 @@
   "devDependencies": {
     "@tsconfig/node16": "^1.0.2",
     "@types/node": "^17.0.34",
-    "prettier": "^2.6.2"
+    "prettier": "^2.6.2",
+    "ts-node": "^10.9.1"
   },
   "dependencies": {
+    "@nut-tree/nut-js": "^3.1.2",
     "chalk": "^4.1.2",
+    "clipboardy": "^3.0.0",
     "typescript": "^5.2.2",
     "youtube-videos-uploader": "^2.0.10"
   },

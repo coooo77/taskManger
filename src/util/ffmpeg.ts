@@ -1,9 +1,9 @@
 import fs from 'fs'
 import path from 'path'
-import Main from './main'
-import Common from './common'
+import Main from './main.js'
+import Common from './common.js'
 import cp from 'child_process'
-import { Convert } from '../types/config'
+import { Convert } from '../types/config.js'
 
 type GetMediaDurationRes<T extends boolean> = T extends boolean ? number : string
 

@@ -1,8 +1,8 @@
-import Main from '../util/main'
+import Main from '../util/main.js'
 import { join, parse } from 'path'
-import FFmpeg from '../util/ffmpeg'
-import Common from '../util/common'
-import { Combine } from '../types/config'
+import FFmpeg from '../util/ffmpeg.js'
+import Common from '../util/common.js'
+import { Combine } from '../types/config.js'
 
 type FilePath = string
 

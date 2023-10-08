@@ -1,8 +1,12 @@
 import fs from 'fs'
 import path from 'path'
-import Common from './common'
+import * as url from 'url'
 import { ChildProcess, fork } from 'child_process'
-import { Config, Move, Upload, Combine, Convert, Task } from '../types/config'
+
+import Common from './common.js'
+import { Config, Move, Upload, Combine, Convert, Task } from '../types/config.js'
+
+const __dirname = url.fileURLToPath(new URL('.', import.meta.url))
 
 export default class Main {
   static currentProcess: ChildProcess | null = null
