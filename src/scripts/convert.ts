@@ -4,77 +4,80 @@ import FFmpeg from '../util/ffmpeg'
 import Common from '../util/common'
 import { Convert } from '../types/config'
 
-Common.msg('Start to convert videos')
+process.once('message', (task: Convert) => {
+  /** init */
+  Common.msg('Start to convert videos')
 
-const payload = process.argv.splice(2)
+  const { exceptions, handleFolder, includeExt, keepFiles, outputFolder, screenshot, split } = task
 
-const task = JSON.parse(payload[0]) as Convert
+  const target = Common.getTargetFiles([handleFolder], includeExt, exceptions)
 
-const { exceptions, handleFolder, includeExt, keepFiles, outputFolder, screenshot, split } = task
+  const files = Object.values(target)[0]
 
-const target = Common.getTargetFiles([handleFolder], includeExt, exceptions)
+  if (!files || files.length === 0) {
+    Common.msg('No files to convert. stop task')
 
-const files = Object.values(target)[0]
+    process.exit(0)
+  }
 
-if (!files || files.length === 0) {
-  Common.msg('No files to convert. stop task')
+  /** functions */
+  async function starConvert(source: string) {
+    try {
+      if (!fs.existsSync(source)) return Common.msg(`Can not find source: ${source} for convert`, 'warn')
 
-  process.exit(0)
-}
+      const convertFilePath = await FFmpeg.convert(source, task, outputFolder)
 
-files
-  .map((filename) => join(handleFolder, filename))
-  .reduce((acc, filename) => acc.then(() => starConvert(filename)), Promise.resolve())
-  .finally(() => {
+      if (!split) return await handleConvertEnd([source], [convertFilePath])
+
+      const splitOutPut = await FFmpeg.checkAndSplitVideo(convertFilePath, outputFolder)
+
+      const isSplitSuccess = splitOutPut.length !== 0
+
+      if (isSplitSuccess) {
+        await handleConvertEnd([source, convertFilePath], splitOutPut)
+      } else {
+        await handleConvertEnd([source], [convertFilePath])
+      }
+    } catch (error) {
+      Common.msg(`Failed to convert file: ${source}`, 'error')
+
+      Common.errorHandler(error)
+    }
+  }
+
+  async function handleConvertEnd(sourceFilesPath: string[], convertFilePath?: string[]) {
+    await Common.wait(5)
+
+    if (!convertFilePath?.length) return
+
+    if (keepFiles) {
+      await Common.checkMoveFullPathFiles(sourceFilesPath, outputFolder)
+    } else {
+      Common.deleteFullPathFiles(sourceFilesPath)
+    }
+
+    await Common.checkMoveFullPathFiles(convertFilePath, outputFolder)
+
+    if (!screenshot) return
+
+    for (const files of convertFilePath) {
+      const { base } = parse(files)
+
+      const outPutFilePath = join(outputFolder, base)
+
+      await FFmpeg.screenshot(outPutFilePath)
+    }
+  }
+
+  function handleTaskClose() {
     Common.msg('Convert files done', 'success')
 
     process.exit(0)
-  })
-
-async function starConvert(source: string) {
-  try {
-    if (!fs.existsSync(source)) return Common.msg(`Can not find source: ${source} for convert`, 'warn')
-
-    const convertFilePath = await FFmpeg.convert(source, task, outputFolder)
-
-    if (!split) return await handleConvertEnd([source], [convertFilePath])
-
-    const splitOutPut = await FFmpeg.checkAndSplitVideo(convertFilePath, outputFolder)
-
-    const isSplitSuccess = splitOutPut.length !== 0
-
-    if (isSplitSuccess) {
-      await handleConvertEnd([source, convertFilePath], splitOutPut)
-    } else {
-      await handleConvertEnd([source], [convertFilePath])
-    }
-  } catch (error) {
-    Common.msg(`Failed to convert file: ${source}`, 'error')
-
-    Common.errorHandler(error)
-  }
-}
-
-async function handleConvertEnd(sourceFilesPath: string[], convertFilePath?: string[]) {
-  await Common.wait(5)
-
-  if (!convertFilePath?.length) return
-
-  if (keepFiles) {
-    await Common.checkMoveFullPathFiles(sourceFilesPath, outputFolder)
-  } else {
-    Common.deleteFullPathFiles(sourceFilesPath)
   }
 
-  await Common.checkMoveFullPathFiles(convertFilePath, outputFolder)
-
-  if (!screenshot) return
-
-  for (const files of convertFilePath) {
-    const { base } = parse(files)
-
-    const outPutFilePath = join(outputFolder, base)
-
-    await FFmpeg.screenshot(outPutFilePath)
-  }
-}
+  /** task content */
+  files
+    .map((filename) => join(handleFolder, filename))
+    .reduce((acc, filename) => acc.then(() => starConvert(filename)), Promise.resolve())
+    .finally(handleTaskClose)
+})

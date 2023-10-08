@@ -208,24 +208,24 @@ export default class Main {
 
   static runScript(task: Task, scriptName: string, fn: Function): Promise<void> {
     return new Promise((resolve, reject) => {
-      const payload = [JSON.stringify(task)]
-
-      const child_process = fork(path.join(__dirname, '..', 'scripts', scriptName), payload)
-
-      child_process.on('error', (error: any) => {
-        Main.setError(error, fn)
-
-        reject()
-      })
-
-      child_process.on('close', (code) => {
-        child_process.off('close', () => {})
-
-        child_process.off('error', () => {})
-
-        resolve()
-      })
       try {
+        const child_process = fork(path.join(__dirname, '..', 'scripts', scriptName))
+
+        child_process.on('error', (error: any) => {
+          Main.setError(error, fn)
+
+          reject()
+        })
+
+        child_process.on('close', (code) => {
+          child_process.off('close', () => {})
+
+          child_process.off('error', () => {})
+
+          resolve()
+        })
+
+        child_process.send(task)
       } catch (error: any) {
         Main.setError(error, fn)
 

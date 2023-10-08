@@ -10,104 +10,105 @@ interface ListToHandle {
   [userID: string]: FilePath[]
 }
 
-const payload = process.argv.splice(2)
+process.once('message', (task: Combine) => {
+  /** init */
+  const { handleFolder, outputFolder, includeExt, exceptions, split, keepFiles, screenshot } = task
 
-const task = JSON.parse(payload[0]) as Combine
+  const config = Main.getConfig()
 
-const { handleFolder, outputFolder, includeExt, exceptions, split, keepFiles, screenshot } = task
+  const { fileNameClipper } = config.combine
 
-const config = Main.getConfig()
+  /* functions */
+  function getCombineList(source: string) {
+    const target = Common.getTargetFiles([source], includeExt, exceptions)
 
-const { fileNameClipper } = config.combine
+    const files = Object.values(target)[0]
 
-Common.msg('Start to combine videos')
+    if (files.length === 0) return {}
 
-Object.entries(getCombineList(handleFolder))
-  .reduce(startToCombine, Promise.resolve())
-  .finally(() => {
-    Common.msg('Combine files done', 'success')
+    return files.reduce((acc, cur) => {
+      const isPixivDefaultAccount = cur.includes('user_')
 
-    process.exit(0)
-  })
+      const words = cur.split(fileNameClipper)
 
-function getCombineList(source: string) {
-  const target = Common.getTargetFiles([source], includeExt, exceptions)
+      const userID = isPixivDefaultAccount ? `user_${words[1]}` : words[0]
 
-  const files = Object.values(target)[0]
+      acc[userID] = (acc[userID] || []).concat(join(source, cur))
 
-  if (files.length === 0) return {}
-
-  return files.reduce((acc, cur) => {
-    const isPixivDefaultAccount = cur.includes('user_')
-
-    const words = cur.split(fileNameClipper)
-
-    const userID = isPixivDefaultAccount ? `user_${words[1]}` : words[0]
-
-    acc[userID] = (acc[userID] || []).concat(join(source, cur))
-
-    return acc
-  }, {} as ListToHandle)
-}
-
-function startToCombine(resolve: Promise<void>, handleList: [string, string[]]) {
-  return resolve.then(() => combine(handleList[0], handleList[1]))
-}
-
-async function combine(userID: string, filesPath: string[]) {
-  try {
-    if (filesPath.length < 2) return await handleCombineEnd(filesPath)
-
-    const outPut = await FFmpeg.combine(userID, filesPath)
-
-    if (!split) return await handleCombineEnd(filesPath, [outPut])
-
-    const splitOutPut = await FFmpeg.checkAndSplitVideo(outPut, outputFolder)
-
-    const isSplitSuccess = splitOutPut.length !== 0
-
-    if (isSplitSuccess) {
-      await handleCombineEnd(filesPath.concat(outPut), splitOutPut)
-    } else {
-      await handleCombineEnd(filesPath, [outPut])
-    }
-  } catch (error) {
-    Common.msg(`Failed to combine ${userID}`, 'error')
-
-    Common.errorHandler(error)
+      return acc
+    }, {} as ListToHandle)
   }
-}
 
-/**
- * @param sourceFilesPath paths of videos which are for combine
- * @param combinedFilePath videos combined, may have been splitted
- */
-async function handleCombineEnd(sourceFilesPath: string[], combinedFilePath?: string[]) {
-  await Common.wait(5)
+  function startToCombine(resolve: Promise<void>, handleList: [string, string[]]) {
+    return resolve.then(() => combine(handleList[0], handleList[1]))
+  }
 
-  const isCombined = combinedFilePath?.length !== 0
+  async function combine(userID: string, filesPath: string[]) {
+    try {
+      if (filesPath.length < 2) return await handleCombineEnd(filesPath)
 
-  if (!isCombined) {
-    await Common.checkMoveFullPathFiles(sourceFilesPath, outputFolder)
-  } else {
-    if (!combinedFilePath?.length) return
+      const outPut = await FFmpeg.combine(userID, filesPath)
 
-    if (keepFiles) {
+      if (!split) return await handleCombineEnd(filesPath, [outPut])
+
+      const splitOutPut = await FFmpeg.checkAndSplitVideo(outPut, outputFolder)
+
+      const isSplitSuccess = splitOutPut.length !== 0
+
+      if (isSplitSuccess) {
+        await handleCombineEnd(filesPath.concat(outPut), splitOutPut)
+      } else {
+        await handleCombineEnd(filesPath, [outPut])
+      }
+    } catch (error) {
+      Common.msg(`Failed to combine ${userID}`, 'error')
+
+      Common.errorHandler(error)
+    }
+  }
+
+  /**
+   * @param sourceFilesPath paths of videos which are for combine
+   * @param combinedFilePath videos combined, may have been splitted
+   */
+  async function handleCombineEnd(sourceFilesPath: string[], combinedFilePath?: string[]) {
+    await Common.wait(5)
+
+    const isCombined = combinedFilePath?.length !== 0
+
+    if (!isCombined) {
       await Common.checkMoveFullPathFiles(sourceFilesPath, outputFolder)
     } else {
-      Common.deleteFullPathFiles(sourceFilesPath)
-    }
+      if (!combinedFilePath?.length) return
 
-    await Common.checkMoveFullPathFiles(combinedFilePath, outputFolder)
+      if (keepFiles) {
+        await Common.checkMoveFullPathFiles(sourceFilesPath, outputFolder)
+      } else {
+        Common.deleteFullPathFiles(sourceFilesPath)
+      }
 
-    if (!screenshot) return
+      await Common.checkMoveFullPathFiles(combinedFilePath, outputFolder)
 
-    for (const files of combinedFilePath) {
-      const { base } = parse(files)
+      if (!screenshot) return
 
-      const outPutFilePath = join(outputFolder, base)
+      for (const files of combinedFilePath) {
+        const { base } = parse(files)
 
-      await FFmpeg.screenshot(outPutFilePath)
+        const outPutFilePath = join(outputFolder, base)
+
+        await FFmpeg.screenshot(outPutFilePath)
+      }
     }
   }
-}
+
+  /** task content */
+  Common.msg('Start to combine videos')
+
+  Object.entries(getCombineList(handleFolder))
+    .reduce(startToCombine, Promise.resolve())
+    .finally(() => {
+      Common.msg('Combine files done', 'success')
+
+      process.exit(0)
+    })
+})
