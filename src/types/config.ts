@@ -62,7 +62,6 @@ interface TaskCommonSetting {
   sourceFolder: string[]
   includeExt: string[]
   exceptions?: string[]
-  includes?: string[]
 }
 
 export interface Convert extends TaskCommonSetting {
@@ -91,10 +90,8 @@ export interface Upload extends TaskCommonSetting {
   type: 'upload'
   handleFolder: string
   outputFolder: string
-  addThumbnail?: boolean
   skip?: boolean
   keepFiles?: boolean
-  uploadAsDraft?: boolean
 }
 
 export interface Move extends TaskCommonSetting {

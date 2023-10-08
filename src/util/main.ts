@@ -177,13 +177,13 @@ export default class Main {
   }
 
   static async handleMove(task: Task) {
-    const { sourceFolder, includeExt, includes, exceptions, type } = task
+    const { sourceFolder, includeExt, exceptions, type } = task
 
     if (sourceFolder.length === 0) {
       return Common.msg(`Task: ${type} skipped due to no files at source folder`)
     }
 
-    const files = Common.getTargetFiles(sourceFolder, includeExt, exceptions, includes)
+    const files = Common.getTargetFiles(sourceFolder, includeExt, exceptions)
 
     if (Object.keys(files).length === 0) {
       return Common.msg(`Task: ${type} skipped due to no target files`)
@@ -203,9 +203,9 @@ export default class Main {
   static async isAbleRunTask(task: Exclude<Task, Move>) {
     await Main.handleMove(task)
 
-    const { handleFolder, includeExt, includes, exceptions } = task
+    const { handleFolder, includeExt, exceptions } = task
 
-    const files = Common.getTargetFiles([handleFolder], includeExt, exceptions, includes)
+    const files = Common.getTargetFiles([handleFolder], includeExt, exceptions)
 
     return Object.values(files).length !== 0
   }
