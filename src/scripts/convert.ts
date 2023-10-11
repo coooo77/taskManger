@@ -51,12 +51,12 @@ process.once('message', (task: Convert) => {
     if (!convertFilePath?.length) return
 
     if (keepFiles) {
-      await Common.checkMoveFullPathFiles(sourceFilesPath, outputFolder)
+      await Common.moveFullPathFiles(sourceFilesPath, outputFolder)
     } else {
       Common.deleteFullPathFiles(sourceFilesPath)
     }
 
-    await Common.checkMoveFullPathFiles(convertFilePath, outputFolder)
+    await Common.moveFullPathFiles(convertFilePath, outputFolder)
 
     if (!screenshot) return
 

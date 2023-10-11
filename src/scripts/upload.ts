@@ -1,159 +1,202 @@
-import Main from '../util/main'
+'use strict'
 import { join, parse } from 'path'
-import Common from '../util/common'
-import { Upload } from '../types/config'
 import { readFileSync, readdirSync } from 'fs'
-import { upload } from 'youtube-videos-uploader'
-import { VideoProgress, Video, MessageTransport } from 'youtube-videos-uploader/dist/types'
 
-function getLiveList(listPath: string) {
+import clipboard from 'clipboardy'
+import { mouse, keyboard, Key, Point, Button } from '@nut-tree/nut-js'
+
+import Main from '../util/main.js'
+import Common from '../util/common.js'
+import HandleTime from '../util/handleTime.js'
+
+import type { Upload } from '../types/config.js'
+
+const { upload } = Main.getConfig()
+const { streamListPath, skipWhenDownloadReach, executableTime } = upload
+
+/** desktop automatic actions */
+const positions = {
+  ytBrowser: { x: 721, y: 468 },
+  uploadBtn: { x: 1758, y: 149 },
+  uploadVideo: { x: 1722, y: 192 },
+  selectFile: { x: 940, y: 665 },
+  folderPathInput: { x: 1158, y: 50 },
+  folderContent: { x: 1472, y: 142 },
+  modalCloseBtn: { x: 1383, y: 147 },
+  cancelUploadBtn: { x: 1010, y: 603 },
+  dragFrom: { x: 1429, y: 709 },
+  dragTo: { x: 1805, y: 961 },
+  miniBrowser: { x: 1811, y: 20 }
+} as const
+
+const locations = Object.entries(positions).reduce((acc, [key, { x, y }]) => {
+  const k = key as keyof typeof positions
+  acc[k] = new Point(x, y)
+  return acc
+}, {} as Record<keyof typeof positions, Point>)
+
+const keyPressRelease = async (...key: Key[]) => {
+  await keyboard.pressKey(...key)
+  await keyboard.releaseKey(...key)
+}
+
+interface MouseMoveToClickOptions {
+  preWait?: number
+  postWait?: number
+}
+
+const mouseMoveToClick = async (points: Point, options: MouseMoveToClickOptions = {}) => {
+  const { preWait, postWait = 1 } = options
+
+  if (preWait) await Common.wait(preWait)
+  await mouse.move([points])
+  await mouse.click(Button.LEFT)
+  if (postWait) await Common.wait(postWait)
+}
+
+/** upload process */
+const openYtBrowser = async () => {
+  // await keyPressRelease(Key.LeftWin, Key.D)
+  await keyPressRelease(Key.LeftWin)
+  await mouseMoveToClick(locations.ytBrowser, { preWait: 2, postWait: 8 })
+  await keyPressRelease(Key.LeftControl, Key.W)
+}
+
+const getStatusString = async () => {
+  await mouse.move([locations.dragFrom])
+  await mouse.pressButton(Button.LEFT)
+  await mouse.move([locations.dragTo])
+  await mouse.releaseButton(Button.LEFT)
+  await keyPressRelease(Key.LeftControl, Key.C)
+  return clipboard.readSync()
+}
+
+const uploadVideoAction = async () => {
+  await mouseMoveToClick(locations.uploadBtn, { postWait: 0.5 })
+  await mouseMoveToClick(locations.uploadVideo)
+  await mouseMoveToClick(locations.selectFile)
+  await mouseMoveToClick(locations.folderPathInput)
+  await keyPressRelease(Key.LeftControl, Key.V)
+  await keyPressRelease(Key.Enter)
+  await mouseMoveToClick(locations.folderContent)
+  await keyPressRelease(Key.LeftControl, Key.A)
+  await keyPressRelease(Key.Enter)
+  await Common.wait(3)
+  await mouseMoveToClick(locations.cancelUploadBtn)
+  await mouseMoveToClick(locations.modalCloseBtn)
+}
+
+/* should abort upload progress */
+const getLiveList = (listPath: string): { liveStreams: Record<string, any> } => {
   try {
-    const streamList = readFileSync(listPath)
-
-    return JSON.parse(streamList.toString()) as { liveStreams: { [key: string]: any } }
-  } catch (error) {
-    return
+    const streamList = readFileSync(listPath, 'utf8')
+    return JSON.parse(streamList)
+  } catch {
+    return { liveStreams: {} }
   }
 }
 
-function getUploadList(source: string) {
-  const files = readdirSync(source)
+const isReachDownloadLimit = () => {
+  if (!streamListPath || !skipWhenDownloadReach) return false
+
+  const list = getLiveList(streamListPath)
+  const liveListLength = Object.keys(list?.liveStreams).length
+
+  const isOverLimit = skipWhenDownloadReach < liveListLength
+  if (isOverLimit) {
+    Common.msg('Busy internet usage, skip upload')
+  } else {
+    Common.msg(`Internet usage: ${liveListLength}, limit ${skipWhenDownloadReach}`)
+  }
+
+  return isOverLimit
+}
+
+const isExceedExecuteTime = () => {
+  if (!executableTime) return false
+
+  const { from, to } = executableTime
+  const currentTime = HandleTime.getUTCPlus8TimeNow()
+  const toTime = HandleTime.getSpecifiedTimeOfDay(currentTime, to.hour, to.min)
+  const fromTime = HandleTime.getSpecifiedTimeOfDay(currentTime, from.hour, from.min)
+  const isExecutableTime = HandleTime.isBetween(currentTime, fromTime, toTime)
+
+  if (isExecutableTime) {
+    Common.msg(
+      `\r\nNow: ${HandleTime.getFullTimeString(currentTime)}
+      \rFrom: ${HandleTime.getFullTimeString(fromTime)}
+      \rTo: ${HandleTime.getFullTimeString(toTime)}`
+    )
+  } else {
+    Common.msg('Time exceed, skip upload')
+  }
+
+  return !isExecutableTime
+}
+
+const checkShouldAbortUploadProgress = async (closeBrowser: boolean = false) => {
+  const shouldAbort = isReachDownloadLimit() || isExceedExecuteTime()
+  if (!shouldAbort) return
+
+  if (closeBrowser) await mouseMoveToClick(locations.miniBrowser)
+  process.exit(0)
+}
+
+/** handle files */
+const getUploadList = (sourceDir: string) => {
+  const files = readdirSync(sourceDir)
 
   return {
-    imagesToUpload: files.filter((i) => RegExp(/.(png|jpg|jpeg)$/gi).test(i)).map((i) => join(handleFolder, i)),
-    videosToUpload: files.filter((i) => RegExp(/.(ts|mp4|flv|mpeg)$/gi).test(i)).map((i) => join(handleFolder, i))
+    imagesToUpload: files.filter((i) => RegExp(/.(png|jpg|jpeg)$/gi).test(i)),
+    videosToUpload: files.filter((i) => RegExp(/.(ts|mp4|flv|mpeg)$/gi).test(i))
   }
 }
 
-async function handleUpload(videos: string[], thumbnails: string[], messageTransport?: MessageTransport) {
-  try {
-    checkInternetUsage()
+process.once('message', async (task: Upload) => {
+  const { handleFolder, outputFolder, keepFiles } = task
+  const { videosToUpload, imagesToUpload } = getUploadList(handleFolder)
 
-    const payload = videos.map((fileFullPath) => getPayload(fileFullPath, thumbnails))
-
-    await upload(credentials, payload, puppeteerSetting, messageTransport).catch((e) => {
-      // FIXME: upload ERROR: TimeoutError: waiting for waiting for file chooser failed: timeout 60000ms exceeded
-      console.log('upload ERROR:', e)
-    })
-  } catch (error: any) {
-    Common.msg(error.message, 'error')
-
-    Common.errorHandler(error)
-
-    stopUpload()
-
-    process.exit(1)
+  if (videosToUpload.length === 0) {
+    Common.msg('No videos to upload, end process')
+    process.exit(0)
+  } else {
+    Common.msg('Start uploading videos ...')
   }
-}
 
-function getPayload(source: string, thumbnailSource: string[]): Video {
-  const { name } = parse(source)
+  await checkShouldAbortUploadProgress()
 
-  const thumbnails = thumbnailSource.filter((filename) => filename.includes(name))
+  const uploadingFolder = join(handleFolder, 'uploading')
+  Common.makeDirIfNotExist(uploadingFolder)
 
-  const onProgress = showProgress
-    ? (videoProgress: VideoProgress) => Common.msg(`upload file: ${source}, progress: ${videoProgress.progress}`)
-    : undefined
+  await openYtBrowser()
+  clipboard.writeSync(uploadingFolder)
 
-  const onSuccess = async (videoUrl: string) => {
-    await Common.wait(0.5)
+  for (const video of videosToUpload) {
+    await Common.checkMoveFiles([video], handleFolder, uploadingFolder)
+    await uploadVideoAction()
 
-    Common.msg(`upload file: ${source}, success: ${videoUrl}`, 'success')
+    let statusString = ''
+    do {
+      statusString = await getStatusString()
+      console.log('statusString', statusString)
+      await Common.wait(10)
+    } while (!statusString.includes('上傳完畢'))
 
-    const resources = thumbnails.concat(source)
+    const { name } = parse(video)
+    const screenshots = imagesToUpload.filter((f) => f.includes(name)).map((f) => join(handleFolder, f))
+    const videoPath = join(uploadingFolder, video)
+    const resources = screenshots.concat(videoPath)
 
     if (keepFiles) {
-      await Common.checkMoveFullPathFiles(resources, outputFolder)
+      await Common.moveFullPathFiles(resources, outputFolder)
     } else {
       Common.deleteFullPathFiles(resources)
     }
 
-    checkInternetUsage()
+    await checkShouldAbortUploadProgress(true)
   }
 
-  const thumbnail = addThumbnail ? thumbnails[0] : undefined
-
-  return {
-    thumbnail,
-    onSuccess,
-    onProgress,
-    path: source,
-    title: name.replaceAll('_', ' '),
-    uploadAsDraft,
-    skipProcessingWait: true,
-    description: new Date().toJSON(),
-    isNotForKid: true
-  }
-}
-
-function stopUpload() {
-  const config = Main.getConfig()
-
-  config.tasks.forEach((task) => {
-    if (task.type === 'upload') task.skip = true
-  })
-
-  Common.saveFile(Main.configPath, 'configure', config)
-}
-
-function checkInternetUsage() {
-  const liveList = getLiveList(streamListPath)
-
-  if (!liveList) return Common.msg('no liveList available')
-
-  const liveListLength = Object.keys(liveList.liveStreams)
-
-  if (skipWhenDownloadReach && liveListLength.length >= skipWhenDownloadReach) {
-    Common.msg('Busy internet usage, skip upload')
-
-    process.exit(0)
-  } else {
-    Common.msg(`Internet usage is ${liveListLength.length}, limit is ${skipWhenDownloadReach}`)
-  }
-}
-
-function groupVideos(source: string[], unit = 10) {
-  const group = []
-
-  for (let i = 0; i < source.length; i += 10) {
-    group.push(source.slice(i, i + 10))
-  }
-
-  return group
-}
-
-const payload = process.argv.splice(2)
-
-const task = JSON.parse(payload[0]) as Upload
-
-const { credentials, puppeteerSetting, streamListPath, skipWhenDownloadReach, showProgress } = Main.getConfig().upload
-
-const { handleFolder, keepFiles, outputFolder, addThumbnail, uploadAsDraft } = task
-
-const { videosToUpload, imagesToUpload } = getUploadList(handleFolder)
-
-if (videosToUpload.length === 0) {
-  Common.msg('No videos to upload, end process')
-
+  Common.msg('Upload complete', 'success')
+  await mouseMoveToClick(locations.miniBrowser)
   process.exit(0)
-}
-
-const messageTransport: MessageTransport = {
-  log: console.log,
-  userAction: console.log,
-  onSmsVerificationCodeSent: Common.getPromptFn('Enter the code that was sent to you via SMS: ')
-}
-
-const videoGroup = groupVideos(videosToUpload)
-
-Common.msg('Start to upload videos')
-
-videoGroup
-  .reduce((acc, cur) => acc.then(() => handleUpload(cur, imagesToUpload, messageTransport)), Promise.resolve())
-  .then(Common.msg.bind(Common, 'Upload complete', 'success'))
-  .catch(Common.errorHandler)
-  .finally(async () => {
-    await Common.wait(5)
-
-    process.exit(0)
-  })
+})

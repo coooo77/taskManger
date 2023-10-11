@@ -77,17 +77,17 @@ process.once('message', (task: Combine) => {
     const isCombined = combinedFilePath?.length !== 0
 
     if (!isCombined) {
-      await Common.checkMoveFullPathFiles(sourceFilesPath, outputFolder)
+      await Common.moveFullPathFiles(sourceFilesPath, outputFolder)
     } else {
       if (!combinedFilePath?.length) return
 
       if (keepFiles) {
-        await Common.checkMoveFullPathFiles(sourceFilesPath, outputFolder)
+        await Common.moveFullPathFiles(sourceFilesPath, outputFolder)
       } else {
         Common.deleteFullPathFiles(sourceFilesPath)
       }
 
-      await Common.checkMoveFullPathFiles(combinedFilePath, outputFolder)
+      await Common.moveFullPathFiles(combinedFilePath, outputFolder)
 
       if (!screenshot) return
 

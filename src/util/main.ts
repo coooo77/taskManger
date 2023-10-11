@@ -180,13 +180,13 @@ export default class Main {
     const { sourceFolder, includeExt, exceptions, type } = task
 
     if (sourceFolder.length === 0) {
-      return Common.msg(`Task: ${type} skipped due to no files at source folder`)
+      return Common.msg(`Task: ${type} skipped moving files due to no files at source folder`)
     }
 
     const files = Common.getTargetFiles(sourceFolder, includeExt, exceptions)
 
     if (Object.keys(files).length === 0) {
-      return Common.msg(`Task: ${type} skipped due to no target files`)
+      return Common.msg(`Task: ${type} skipped moving files due to no target files`)
     }
 
     const destination = type === 'move' ? task.targetFolder : task.handleFolder

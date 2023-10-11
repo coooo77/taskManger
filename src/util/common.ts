@@ -69,7 +69,9 @@ export default class Common {
     console.log(chalk.bgRed.yellow(`pid: ${pid} killed`))
   }
 
-  static makeDirIfNotExist(fileLocation: string) {
+  static makeDirIfNotExist(fileLocation?: string) {
+    if (!fileLocation) throw new Error(`Invalid file location`)
+    if (fs.existsSync(fileLocation)) return
     fs.mkdirSync(fileLocation, { recursive: true })
   }
 
@@ -134,10 +136,10 @@ export default class Common {
    */
   static async checkMoveFiles(fileNames: string[], from: string, to: string) {
     for (const fileName of fileNames) {
-      const fromPath = `${from}\\${fileName}`
+      const fromPath = path.join(from, fileName)
 
       if (fs.existsSync(fromPath)) {
-        const toPath = `${to}\\${fileName}`
+        const toPath = path.join(to, fileName)
 
         await Common.moveFile(fromPath, toPath)
       } else {
@@ -146,14 +148,14 @@ export default class Common {
     }
   }
 
-  static async checkMoveFullPathFiles(fileWithFullPath: string[], to: string) {
-    if (fileWithFullPath.length === 0) return
+  static async moveFullPathFiles(filesWithFullPath: string[], to: string) {
+    if (filesWithFullPath.length === 0) return
 
-    const filenames = fileWithFullPath.map((i) => path.parse(i).base)
-
-    const from = path.parse(fileWithFullPath[0]).dir
-
-    await Common.checkMoveFiles(filenames, from, to)
+    for (const file of filesWithFullPath) {
+      const { base } = path.parse(file)
+      const toPath = path.join(to, base)
+      Common.moveFile(file, toPath)
+    }
   }
 
   static async moveFile(fromPath: string, toPath: string) {
@@ -214,9 +216,9 @@ export default class Common {
 
   static deleteFile(filePath: string, fileName: string) {
     try {
-      const source = `${filePath}\\${fileName}`
+      const source = path.join(filePath, fileName)
 
-      fs.unlinkSync(`${filePath}\\${fileName}`)
+      fs.unlinkSync(source)
 
       Common.msg(`Delete file: ${source}`, 'success')
     } catch (error) {

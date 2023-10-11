@@ -50,12 +50,23 @@ interface Credentials {
   recoveryemail: string
 }
 
+interface Time {
+  hour: number
+  min?: number
+}
+
+interface ExecutableTime {
+  to: Time
+  from: Time
+}
+
 interface UploadOption {
+  showProgress?: boolean
   credentials: Credentials
   puppeteerSetting: PuppeteerSetting
-  streamListPath: string
-  showProgress?: boolean
+  streamListPath?: string
   skipWhenDownloadReach?: number
+  executableTime?: ExecutableTime
 }
 
 interface TaskCommonSetting {
