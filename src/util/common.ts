@@ -159,9 +159,9 @@ export default class Common {
   }
 
   static async moveFile(fromPath: string, toPath: string) {
-    const from = path.parse(fromPath)
+    const from = path.parse(path.resolve(fromPath))
 
-    const to = path.parse(toPath)
+    const to = path.parse(path.resolve(toPath))
 
     const isSameRoot = from.root === to.root
 
