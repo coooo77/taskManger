@@ -20,6 +20,13 @@ export default class FFmpeg {
     return (showInSeconds ? parseFloat(stdout) : stdout) as GetMediaDurationRes<T>
   }
 
+  static getFFmpegCmdFileName(command: string) {
+    const commands = command.split(' ')
+    const inputIndex = commands.indexOf('-i')
+    if (inputIndex === -1 || !commands[inputIndex + 1]) return 'unknown file name'
+    return path.parse(commands[inputIndex + 1]).name
+  }
+
   static spawnFFmpeg(command: string, option: { cwd?: string; shell?: boolean } = {}) {
     return new Promise((resolve, reject) => {
       try {
@@ -29,7 +36,21 @@ export default class FFmpeg {
           ? cp.spawn('ffmpeg', command.split(' '), option)
           : cp.spawn('ffmpeg', command.split(' '))
 
-        task.stderr.on('data', (data) => console.log('stderr', data.toString()))
+        const filename = FFmpeg.getFFmpegCmdFileName(command)
+        const patternTime = /time=([\d:]+.\d+)/
+        const patternSpeed = /speed=([\d.]+x)/
+
+        task.stderr.on('data', (data) => {
+          const message = data.toString()
+          const time = message.match(patternTime)
+          const speed = message.match(patternSpeed)
+
+          if (time && speed) {
+            console.log(`${filename} - time: ${time[1]} - speed: ${speed[1]}`)
+          } else {
+            console.log(message)
+          }
+        })
 
         task.on('close', resolve)
       } catch (error) {
