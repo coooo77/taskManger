@@ -17,13 +17,11 @@ const { streamListPath, skipWhenDownloadReach, executableTime } = upload
 /** desktop automatic actions */
 const positions = {
   ytBrowser: { x: 721, y: 468 },
-  uploadBtn: { x: 1758, y: 149 },
-  uploadVideo: { x: 1722, y: 192 },
+  uploadBtn: { x: 1758, y: 100 },
+  uploadVideo: { x: 1720, y: 138 },
   selectFile: { x: 940, y: 665 },
-  folderPathInput: { x: 1158, y: 50 },
-  folderContent: { x: 1472, y: 142 },
+  videoFileToUpload: { x: 229, y: 188 },
   modalCloseBtn: { x: 1383, y: 147 },
-  cancelUploadBtn: { x: 1010, y: 603 },
   dragFrom: { x: 1429, y: 709 },
   dragTo: { x: 1805, y: 961 },
   miniBrowser: { x: 1811, y: 20 }
@@ -74,16 +72,12 @@ const getStatusString = async () => {
 const uploadVideoAction = async () => {
   await mouseMoveToClick(locations.uploadBtn, { postWait: 0.5 })
   await mouseMoveToClick(locations.uploadVideo)
-  await mouseMoveToClick(locations.selectFile)
-  await mouseMoveToClick(locations.folderPathInput)
-  await keyPressRelease(Key.LeftControl, Key.V)
+  await mouseMoveToClick(locations.selectFile, { postWait: 1 })
+  await mouseMoveToClick(locations.videoFileToUpload)
   await keyPressRelease(Key.Enter)
-  await mouseMoveToClick(locations.folderContent)
-  await keyPressRelease(Key.LeftControl, Key.A)
-  await keyPressRelease(Key.Enter)
-  await Common.wait(3)
-  await mouseMoveToClick(locations.cancelUploadBtn)
-  await mouseMoveToClick(locations.modalCloseBtn)
+  await mouseMoveToClick(locations.modalCloseBtn, { preWait: 10 })
+  await mouse.move([locations.dragTo])
+  await mouse.scrollDown(10000)
 }
 
 /* should abort upload progress */
@@ -143,7 +137,7 @@ const checkShouldAbortUploadProgress = async (closeBrowser: boolean = false) => 
 }
 
 /** handle files */
-const getUploadList = (sourceDir: string) => {
+const getResource = (sourceDir: string) => {
   const files = readdirSync(sourceDir)
 
   return {
@@ -152,9 +146,23 @@ const getUploadList = (sourceDir: string) => {
   }
 }
 
+const clearOldFiles = async (uploadingDir: string, sourceDir: string) => {
+  const { videosToUpload, imagesToUpload } = getResource(uploadingDir)
+  await Common.checkMoveFiles(videosToUpload, uploadingDir, sourceDir)
+  await Common.checkMoveFiles(imagesToUpload, uploadingDir, sourceDir)
+}
+
+const status = {
+  uploading: '上傳中',
+  uploadDone: '上傳完畢',
+  reachLimit: '已達每日上傳'
+}
+
+const ERROR_LIMIT = 200
+
 process.once('message', async (task: Upload) => {
   const { handleFolder, outputFolder, keepFiles } = task
-  const { videosToUpload, imagesToUpload } = getUploadList(handleFolder)
+  const { videosToUpload, imagesToUpload } = getResource(handleFolder)
 
   if (videosToUpload.length === 0) {
     Common.msg('No videos to upload, end process')
@@ -167,20 +175,39 @@ process.once('message', async (task: Upload) => {
 
   const uploadingFolder = join(handleFolder, 'uploading')
   Common.makeDirIfNotExist(uploadingFolder)
+  await clearOldFiles(uploadingFolder, handleFolder)
 
   await openYtBrowser()
-  clipboard.writeSync(uploadingFolder)
 
+  let isAbortUpload = false
   for (const video of videosToUpload) {
     await Common.checkMoveFiles([video], handleFolder, uploadingFolder)
     await uploadVideoAction()
 
+    let errorCount = 0
     let statusString = ''
+    let isUploading = true
+
     do {
       statusString = await getStatusString()
-      console.log('statusString', statusString)
-      await Common.wait(10)
-    } while (!statusString.includes('上傳完畢'))
+
+      if (!statusString.includes(status.uploading) || (statusString && !statusString.includes(video))) {
+        errorCount++
+      }
+
+      isUploading = !statusString.includes(status.uploadDone)
+
+      if (statusString.includes(status.reachLimit) || errorCount >= ERROR_LIMIT) {
+        isAbortUpload = true
+        await Common.checkMoveFiles([video], uploadingFolder, handleFolder)
+        break
+      }
+
+      console.log('====== [statusString] ======\r\n', statusString)
+      if (isUploading) await Common.wait(10)
+    } while (isUploading)
+
+    if (isAbortUpload) break
 
     const { name } = parse(video)
     const screenshots = imagesToUpload.filter((f) => f.includes(name)).map((f) => join(handleFolder, f))
@@ -196,7 +223,7 @@ process.once('message', async (task: Upload) => {
     await checkShouldAbortUploadProgress(true)
   }
 
-  Common.msg('Upload complete', 'success')
+  Common.msg('Upload complete', isAbortUpload ? 'error' : 'success')
   await mouseMoveToClick(locations.miniBrowser)
   process.exit(0)
 })
