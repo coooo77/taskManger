@@ -21,11 +21,25 @@ export default class Main {
 
   static isUploading: boolean = false
 
+  static isMovingFiles: boolean = false
+
   static get config() {
     return Main._config[0]
   }
 
   static configPath = path.join(__dirname, '..', '..')
+
+  static getTasks() {
+    const { tasks } = Main.config
+
+    if (tasks.length === 0) {
+      Main.setError('no tasks available', Main.getTasks)
+
+      process.exit(1)
+    }
+
+    return tasks
+  }
 
   static getConfig() {
     try {
@@ -57,58 +71,67 @@ export default class Main {
   }
 
   static handleTask() {
-    const tasks = Main.getTasks().filter((i) => {
-      if (i.skip) Common.msg(`Task: ${i.type} skipped due to config`, 'warn')
+    const order = {
+      convert: 1,
+      combine: 2,
+      upload: 3,
+      move: 3
+    }
 
-      return !i.skip
-    })
+    const tasks = Main.getTasks()
+      .filter((i) => {
+        if (i.skip) Common.msg(`Task: ${i.type} skipped due to config`, 'warn')
 
-    Main.multiTask(tasks)
+        return !i.skip
+      })
+      .sort((a, b) => order[a.type] - order[b.type])
 
-    Main.uploadTask(tasks)
+    Main.startTask(tasks, ['convert', 'combine'], 'isHandling')
 
-    Main.moveTask(tasks)
+    Main.startTask(tasks, ['upload'], 'isUploading')
+
+    Main.startTask(tasks, ['move'], 'isMovingFiles')
 
     Main.setTimer()
   }
 
-  static async multiTask(tasks: Task[]) {
-    if (Main.isHandling) return Common.msg('Multi task is on going, stop new task')
+  static async startTask(
+    taskList: Task[],
+    targetTaskTypes: Task['type'][],
+    checkKey: 'isHandling' | 'isUploading' | 'isMovingFiles'
+  ) {
+    if (Main[checkKey]) {
+      Common.msg(`${targetTaskTypes.join(' ')} task is on going, stop new task`)
+      return
+    }
 
-    Main.isHandling = true
+    Main[checkKey] = true
 
-    const target = Main.getTargetTasks(tasks)
+    const target = taskList.filter((t) => targetTaskTypes.includes(t.type))
+
+    if (target.length === 0) return
 
     try {
       await Main.taskWrapper(() =>
         target.reduce((acc, cur) => acc.then(() => Main.taskSelector(cur)), Promise.resolve())
       )
     } catch (error) {
-      Main.setError(error, Main.multiTask)
+      Main.setError(error, `startTask ${targetTaskTypes.join(' ')}`)
     } finally {
-      Main.isHandling = false
+      Main[checkKey] = false
     }
   }
 
-  static getTargetTasks(tasks: Task[]) {
-    const target = tasks.filter((t) => t.type !== 'upload' && t.type !== 'move') as Exclude<Task, Upload | Move>[]
-
-    const order = {
-      convert: 1,
-      combine: 2
-    }
-
-    return target.sort((a, b) => order[a.type] - order[b.type])
-  }
-
-  static taskSelector(tasks: Task): Promise<any> {
-    switch (tasks.type) {
+  static taskSelector(task: Task): Promise<any> {
+    switch (task.type) {
       case 'combine':
-        return Main.handleCombine(tasks)
       case 'convert':
-        return Main.handleConvert(tasks)
+      case 'upload':
+        return Main.scriptHandler(task, task.type, task.type)
+      case 'move':
+        return Main.handleMove(task)
       default:
-        throw new Error(`Invalid task type：${tasks.type}`)
+        throw new Error(`Invalid task type at taskSelector: ${task}`)
     }
   }
 
@@ -126,35 +149,7 @@ export default class Main {
     })
   }
 
-  static async uploadTask(tasks: Task[]) {
-    if (Main.isUploading) return Common.msg('Upload task is on going, stop new task')
-
-    const target = tasks.filter((t) => t.type === 'upload') as Upload[]
-
-    Main.isUploading = true
-
-    try {
-      await Main.taskWrapper(() =>
-        target.reduce((acc, cur) => acc.then(() => Main.handleUpload(cur)), Promise.resolve())
-      )
-    } catch (error) {
-      Main.setError(error, Main.uploadTask)
-    } finally {
-      Main.isUploading = false
-    }
-  }
-
-  static async moveTask(tasks: Task[]) {
-    const target = tasks.filter((t) => t.type === 'move') as Move[]
-
-    try {
-      await Main.taskWrapper(() => target.reduce((acc, cur) => acc.then(() => Main.handleMove(cur)), Promise.resolve()))
-    } catch (error) {
-      Main.setError(error, Main.moveTask)
-    }
-  }
-
-  static async scriptHandler(task: Exclude<Task, Move>, type: 'upload' | 'convert' | 'combine', fn: Function) {
+  static async scriptHandler(task: Exclude<Task, Move>, type: 'upload' | 'convert' | 'combine', fn: Function | string) {
     const isAbleRunTask = await Main.isAbleRunTask(task)
 
     if (!isAbleRunTask) return Common.msg(`no files at: ${task.handleFolder}, stop ${type}`)
@@ -164,26 +159,24 @@ export default class Main {
     await Main.runScript(task, `${type}.js`, fn)
   }
 
-  static async handleUpload(task: Upload) {
-    await Main.scriptHandler(task, 'upload', Main.handleUpload)
-  }
+  static async isAbleRunTask(task: Exclude<Task, Move>) {
+    await Main.handleMove(task)
 
-  static async handleConvert(task: Convert) {
-    await Main.scriptHandler(task, 'convert', Main.handleConvert)
-  }
+    const { handleFolder, includeExt, exceptions, includes } = task
 
-  static async handleCombine(task: Combine) {
-    await Main.scriptHandler(task, 'combine', Main.handleCombine)
+    const files = Common.getTargetFiles([handleFolder], includeExt, { includes, exceptions })
+
+    return Object.values(files).length !== 0
   }
 
   static async handleMove(task: Task) {
-    const { sourceFolder, includeExt, exceptions, type } = task
+    const { sourceFolder, includeExt, exceptions, type, includes } = task
 
     if (sourceFolder.length === 0) {
       return Common.msg(`Task: ${type} skipped moving files due to no files at source folder`)
     }
 
-    const files = Common.getTargetFiles(sourceFolder, includeExt, exceptions)
+    const files = Common.getTargetFiles(sourceFolder, includeExt, { includes, exceptions })
 
     if (Object.keys(files).length === 0) {
       return Common.msg(`Task: ${type} skipped moving files due to no target files`)
@@ -200,17 +193,7 @@ export default class Main {
     await Promise.all(jobs)
   }
 
-  static async isAbleRunTask(task: Exclude<Task, Move>) {
-    await Main.handleMove(task)
-
-    const { handleFolder, includeExt, exceptions } = task
-
-    const files = Common.getTargetFiles([handleFolder], includeExt, exceptions)
-
-    return Object.values(files).length !== 0
-  }
-
-  static runScript(task: Task, scriptName: string, fn: Function): Promise<void> {
+  static runScript(task: Task, scriptName: string, fn: Function | string): Promise<void> {
     return new Promise((resolve, reject) => {
       try {
         const child_process = fork(path.join(__dirname, '..', 'scripts', scriptName))
@@ -238,22 +221,10 @@ export default class Main {
     })
   }
 
-  static getTasks() {
-    const { tasks } = Main.config
-
-    if (tasks.length === 0) {
-      Main.setError('no tasks available', Main.getTasks)
-
-      process.exit(1)
-    }
-
-    return tasks
-  }
-
-  static setError(error: any, fn: Function) {
+  static setError(error: any, errorPlace: Function | string) {
     const message = error.message || 'unknown error'
 
-    const place = ` at function: ${fn.name}`
+    const place = typeof errorPlace === 'function' ? ` at function: ${errorPlace.name}` : `at ${errorPlace}`
 
     Common.msg(message + place, 'error')
 
