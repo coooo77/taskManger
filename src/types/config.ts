@@ -73,6 +73,8 @@ interface TaskCommonSetting {
   sourceFolder: string[]
   includeExt: string[]
   exceptions?: string[]
+  /** specify some files only */
+  includes?: string[]
 }
 
 export interface Convert extends TaskCommonSetting {

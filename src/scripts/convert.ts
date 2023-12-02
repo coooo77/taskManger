@@ -8,9 +8,9 @@ process.once('message', (task: Convert) => {
   /** init */
   Common.msg('Start to convert videos')
 
-  const { exceptions, handleFolder, includeExt, keepFiles, outputFolder, screenshot, split } = task
+  const { exceptions, handleFolder, includeExt, keepFiles, outputFolder, screenshot, split, includes } = task
 
-  const target = Common.getTargetFiles([handleFolder], includeExt, exceptions)
+  const target = Common.getTargetFiles([handleFolder], includeExt, { includes, exceptions })
 
   const files = Object.values(target)[0]
 

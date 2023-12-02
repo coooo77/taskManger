@@ -12,7 +12,7 @@ interface ListToHandle {
 
 process.once('message', (task: Combine) => {
   /** init */
-  const { handleFolder, outputFolder, includeExt, exceptions, split, keepFiles, screenshot } = task
+  const { handleFolder, outputFolder, includeExt, exceptions, split, keepFiles, screenshot, includes } = task
 
   const config = Main.getConfig()
 
@@ -20,7 +20,7 @@ process.once('message', (task: Combine) => {
 
   /* functions */
   function getCombineList(source: string) {
-    const target = Common.getTargetFiles([source], includeExt, exceptions)
+    const target = Common.getTargetFiles([source], includeExt, { includes, exceptions })
 
     const files = Object.values(target)[0]
 

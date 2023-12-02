@@ -6,6 +6,11 @@ import readline from 'readline'
 
 const __dirname = url.fileURLToPath(new URL('.', import.meta.url))
 
+interface TargetFilesOptions {
+  includes?: string[]
+  exceptions?: string[]
+}
+
 type FolderPath = string
 
 type Filename = string
@@ -236,11 +241,13 @@ export default class Common {
     }
   }
 
-  static getTargetFiles(source: string[], includeExt: string[], exceptions: string[] = []) {
+  static getTargetFiles(source: string[], includeExt: string[], options: TargetFilesOptions) {
+    const { exceptions = [], includes = [] } = options
+
     return source.reduce((acc, sourcePath) => {
       const files = fs
         .readdirSync(sourcePath)
-        .filter((filename) => Common.isTargetFile(filename, includeExt, exceptions))
+        .filter((filename) => Common.isTargetFile(filename, includeExt, { exceptions, includes }))
 
       if (files.length !== 0) acc[sourcePath] = files
 
@@ -248,12 +255,16 @@ export default class Common {
     }, {} as FilesToHandle)
   }
 
-  static isTargetFile(filename: string, includeExt: string[], exceptions: string[]) {
+  static isTargetFile(filename: string, includeExt: string[], options: TargetFilesOptions) {
+    const { exceptions = [], includes = [] } = options
+
+    const isIncluded = includes.length ? includes.some((i) => filename.includes(i)) : true
+
     const isValidExtName = includeExt.length ? Common.isValidExtName(filename, includeExt) : false
 
     const isNotInExceptions = exceptions.length ? Common.isNotInExceptions(filename, exceptions) : true
 
-    return isValidExtName && isNotInExceptions
+    return isIncluded && isValidExtName && isNotInExceptions
   }
 
   static isValidExtName(filename: string, checkList: string[]) {
