@@ -3,36 +3,58 @@
   "checkInterval": 3600,
   "tasks": [
     {
-      "exceptions": ["nameYouDoNotWantToApply"],
+      "exceptions": [
+        "nameYouDoNotWantToApply"
+      ],
       "handleFolder": "E:\\path\\to\\handle",
-      "includeExt": ["mp4"],
+      "includeExt": [
+        "mp4"
+      ],
       "keepFiles": true,
       "outputFolder": "E:\\path\\to\\output",
       "screenshot": false,
       "skip": false,
-      "sourceFolder": ["E:\\path\\to\\folder1", "E:\\path\\to\\folder2"],
+      "sourceFolder": [
+        "E:\\path\\to\\folder1",
+        "E:\\path\\to\\folder2"
+      ],
       "split": false,
       "type": "combine"
     },
     {
       "compress": false,
-      "exceptions": ["nameYouDoNotWantToApply"],
+      "exceptions": [
+        "nameYouDoNotWantToApply"
+      ],
       "handleFolder": "E:\\path\\to\\handle",
-      "includeExt": ["mp4"],
+      "includeExt": [
+        "mp4"
+      ],
       "keepFiles": false,
-      "mute": false,
+      "ffmpegSetting": "-vcodec libx264 -crf 24 -preset veryfast",
+      "suffix": "_compress",
       "outputFolder": "E:\\path\\to\\output",
       "screenshot": true,
       "skip": false,
-      "sourceFolder": ["E:\\path\\to\\folder1", "E:\\path\\to\\folder2"],
+      "sourceFolder": [
+        "E:\\path\\to\\folder1",
+        "E:\\path\\to\\folder2"
+      ],
       "split": true,
       "type": "convert"
     },
     {
-      "exceptions": ["nameYouDoNotWantToApply"],
-      "includeExt": ["mp4", "jpg"],
+      "exceptions": [
+        "nameYouDoNotWantToApply"
+      ],
+      "includeExt": [
+        "mp4",
+        "jpg"
+      ],
       "skip": false,
-      "sourceFolder": ["E:\\temp"],
+      "sourceFolder": [
+        "E:\\temp"
+      ],
       "targetFolder": "D:\\JD\\test\\source",
       "type": "move"
     },
@@ -40,11 +62,17 @@
       "addThumbnail": true,
       "exceptions": [],
       "handleFolder": "E:\\path\\to\\handle",
-      "includeExt": ["mp4", "jpg"],
+      "includeExt": [
+        "mp4",
+        "jpg"
+      ],
       "keepFiles": false,
       "outputFolder": "E:\\path\\to\\output",
       "skip": false,
-      "sourceFolder": ["E:\\path\\to\\folder1", "E:\\path\\to\\folder2"],
+      "sourceFolder": [
+        "E:\\path\\to\\folder1",
+        "E:\\path\\to\\folder2"
+      ],
       "type": "upload",
       "uploadAsDraft": true
     }
@@ -52,18 +80,23 @@
   "screenshot": {
     "outputFolder": "",
     "count": 10,
-    "timestamp": [30, "00:00:30"],
+    "timestamp": [
+      30,
+      "00:00:30"
+    ],
     "interval": 10800
   },
   "convert": {
     "ext": "mp4",
-    "suffixForMute": "_mute",
-    "suffixForCompress": "_compress",
-    "preset": "ultrafast",
+    "defaultFFmpegSetting": "-b 350k -filter:v setpts=PTS/4 -vcodec libx264 -crf 24 -an -preset veryfast",
+    "defaultSuffix": "_mute_convert_4x_crf24",
     "crf": 28,
     "showConvertCmd": true,
-    "customCrf": {
-      "nameOfStreamer": 18
+    "customSetting": {
+      "nameOfStreamer": {
+        "ffmpegSetting": "-b 350k -filter:v setpts=PTS/4 -vcodec libx264 -crf 18 -an -preset veryfast",
+        "suffix": "_mute_convert"
+      }
     }
   },
   "combine": {

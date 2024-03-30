@@ -1,3 +1,13 @@
 {
-  "cSpell.words": ["Pixiv", "recoveryemail", "superfast", "ultrafast", "veryfast", "veryslow"]
+  "cSpell.words": [
+    "libx",
+    "Pixiv",
+    "recoveryemail",
+    "setpts",
+    "superfast",
+    "ultrafast",
+    "vcodec",
+    "veryfast",
+    "veryslow"
+  ]
 }
