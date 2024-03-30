@@ -22,6 +22,8 @@ export interface FilesToHandle {
 export default class Common {
   static errorLogPath = path.join(__dirname, '../log')
 
+  static uploadLogPath = path.join(__dirname, '../uploadLog')
+
   static msg(msg: string, msgType: 'debug' | 'warn' | 'info' | 'success' | 'fail' | 'error' = 'info') {
     const { log } = console
 
@@ -97,6 +99,12 @@ export default class Common {
 
       Common.errorHandler(error)
     }
+  }
+
+  static saveUploadLog(log: Record<PropertyKey, any>) {
+    log.date = new Date().toLocaleString()
+
+    Common.saveFile(Common.uploadLogPath, `${new Date().getTime()}`, log)
   }
 
   static errorHandler(error: any) {
