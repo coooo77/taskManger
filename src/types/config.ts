@@ -10,7 +10,7 @@ type Preset =
   | 'veryslow'
   | 'placebo'
 
-interface CustomSetting {
+export interface CustomSetting {
   ffmpegSetting: string
   suffix: string
 }
