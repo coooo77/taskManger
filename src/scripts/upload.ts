@@ -22,7 +22,7 @@ const positions = {
   selectFile: { x: 940, y: 665 },
   videoFileToUpload: { x: 229, y: 188 },
   modalCloseBtn: { x: 1383, y: 147 },
-  dragFrom: { x: 1429, y: 709 },
+  dragFrom: { x: 1327, y: 679 },
   dragTo: { x: 1805, y: 961 },
   miniBrowser: { x: 1811, y: 20 }
 } as const
@@ -61,12 +61,16 @@ const openYtBrowser = async () => {
 }
 
 const getStatusString = async () => {
-  await mouse.move([locations.dragFrom])
-  await mouse.pressButton(Button.LEFT)
-  await mouse.move([locations.dragTo])
-  await mouse.releaseButton(Button.LEFT)
-  await keyPressRelease(Key.LeftControl, Key.C)
-  return clipboard.readSync()
+  try {
+    await mouse.move([locations.dragFrom])
+    await mouse.pressButton(Button.LEFT)
+    await mouse.move([locations.dragTo])
+    await mouse.releaseButton(Button.LEFT)
+    await keyPressRelease(Key.LeftControl, Key.C)
+    return clipboard.readSync()
+  } catch (error) {
+    return ''
+  }
 }
 
 const uploadVideoAction = async () => {
@@ -74,6 +78,7 @@ const uploadVideoAction = async () => {
   await mouseMoveToClick(locations.uploadVideo)
   await mouseMoveToClick(locations.selectFile, { postWait: 1 })
   await mouseMoveToClick(locations.videoFileToUpload)
+  await keyPressRelease(Key.LeftControl, Key.A)
   await keyPressRelease(Key.Enter)
   await mouseMoveToClick(locations.modalCloseBtn, { preWait: 10 })
   await mouse.move([locations.dragTo])
@@ -152,13 +157,67 @@ const clearOldFiles = async (uploadingDir: string, sourceDir: string) => {
   await Common.checkMoveFiles(imagesToUpload, uploadingDir, sourceDir)
 }
 
-const status = {
-  uploading: '上傳中',
-  uploadDone: '上傳完畢',
-  reachLimit: '已達每日上傳'
+const recycleUploadSuccessVideos = async (
+  videos: string[],
+  images: string[],
+  imageSourceDir: string,
+  videoSourceDir: string,
+  keepFileDir: string,
+  keepFiles?: boolean
+) => {
+  const recycleList = videos.reduce((acc, video) => {
+    const { name } = parse(video)
+    const screenshots = images.filter((f) => f.includes(name)).map((f) => join(imageSourceDir, f))
+    const videoPath = join(videoSourceDir, video)
+    const resources = screenshots.concat(videoPath)
+    acc.push(...resources)
+    return acc
+  }, [] as string[])
+
+  if (keepFiles) {
+    await Common.moveFullPathFiles(recycleList, keepFileDir)
+  } else {
+    Common.deleteFullPathFiles(recycleList)
+  }
 }
 
-const ERROR_LIMIT = 200
+// TODO: 上傳失敗處理
+const status = {
+  uploading: '上傳中',
+  stopAuto: '停止自動',
+  uploadDone: '上傳完畢',
+  manualStop: '停止上傳',
+  reachLimit: '已達每日上傳',
+  oneVideoUpload: '已上傳 100%'
+}
+
+const ERROR_LIMIT = 30
+const MAX_UPLOAD_NUM = 15
+
+const getUploadingVideoIndex = (uploadString: string[], videos: string[], currentIndex: number) => {
+  const uploadingRegex = /^已上傳\s([1-9]|[1-9]\d)%$/
+  const uploadDoneIndex = uploadString.findIndex((text) => uploadingRegex.test(text))
+
+  const noUploadingVideoFound = uploadDoneIndex === -1
+
+  let alreadyVideoUploadIndex = -1
+  for (let i = uploadString.length - 1; i > 0; i--) {
+    if (status.oneVideoUpload !== uploadString[i]) continue
+    alreadyVideoUploadIndex = i
+    break
+  }
+
+  const uploadingVideoName = noUploadingVideoFound
+    ? alreadyVideoUploadIndex !== -1
+      ? uploadString[alreadyVideoUploadIndex - 1]
+      : videos[0]
+    : uploadString[uploadDoneIndex - 1]
+
+  return Math.max(
+    currentIndex,
+    videos.findIndex((v) => v === uploadingVideoName)
+  )
+}
 
 process.once('message', async (task: Upload) => {
   const { handleFolder, outputFolder, keepFiles } = task
@@ -180,45 +239,85 @@ process.once('message', async (task: Upload) => {
   await openYtBrowser()
 
   let isAbortUpload = false
-  for (const video of videosToUpload) {
-    await Common.checkMoveFiles([video], handleFolder, uploadingFolder)
+  for (let i = 0; i < videosToUpload.length; i += MAX_UPLOAD_NUM) {
+    const videos = videosToUpload.slice(i, i + MAX_UPLOAD_NUM)
+    if (videos.length === 0) break
+
+    await Common.checkMoveFiles(videos, handleFolder, uploadingFolder)
     await uploadVideoAction()
 
     let errorCount = 0
     let statusString = ''
-    let isUploading = true
-
+    let uploadingVideoIndex = 0
     do {
       statusString = await getStatusString()
+      const uploadString = statusString.split('\r\n').filter(Boolean)
+      uploadingVideoIndex = getUploadingVideoIndex(uploadString, videos, uploadingVideoIndex)
 
-      if (!statusString.includes(status.uploading) || (statusString && !statusString.includes(video))) {
-        errorCount++
+      // Common.saveUploadLog({
+      //   videos,
+      //   uploadString,
+      //   type: 'catch string',
+      //   uploadingVideo: videos[uploadingVideoIndex]
+      // })
+
+      const is = {
+        StopAuto: statusString.includes(status.stopAuto),
+        Uploading: statusString.includes(status.uploading),
+        UploadDone: statusString.includes(status.uploadDone),
+        ReachLimit: statusString.includes(status.reachLimit),
+        ManualStop: statusString.includes(status.manualStop)
       }
 
-      isUploading = !statusString.includes(status.uploadDone)
+      if (is.UploadDone) break
 
-      if (statusString.includes(status.reachLimit) || errorCount >= ERROR_LIMIT) {
+      if (!is.Uploading || !statusString) errorCount++
+
+      if (is.ReachLimit || is.ManualStop || is.StopAuto || errorCount >= ERROR_LIMIT) {
         isAbortUpload = true
-        await Common.checkMoveFiles([video], uploadingFolder, handleFolder)
+
+        const type = is.ReachLimit
+          ? 'reach limit'
+          : is.ManualStop
+          ? 'manual stop'
+          : is.StopAuto
+          ? 'stop auto upload'
+          : 'reach error limit'
+
+        Common.saveUploadLog({
+          type,
+          videos,
+          uploadString,
+          uploadingVideo: videos[uploadingVideoIndex]
+        })
+
+        // 已完成上傳影片
+        const videoUploaded = videosToUpload.slice(0, uploadingVideoIndex)
+        await recycleUploadSuccessVideos(
+          videoUploaded,
+          imagesToUpload,
+          handleFolder,
+          uploadingFolder,
+          outputFolder,
+          keepFiles
+        )
+
+        // 停止自動上傳，保持上傳繼續
+        if (is.StopAuto) break
+
+        // 收回未上傳影片，如果是停止上傳，不移動上傳中的影片
+        const returnIndex = is.ManualStop ? uploadingVideoIndex + 1 : uploadingVideoIndex
+        const videoToReturn = videosToUpload.slice(returnIndex)
+        await Common.checkMoveFiles(videoToReturn, uploadingFolder, handleFolder)
         break
       }
 
-      console.log('====== [statusString] ======\r\n', statusString)
-      if (isUploading) await Common.wait(10)
-    } while (isUploading)
+      await Common.wait(10)
+    } while (true)
 
     if (isAbortUpload) break
 
-    const { name } = parse(video)
-    const screenshots = imagesToUpload.filter((f) => f.includes(name)).map((f) => join(handleFolder, f))
-    const videoPath = join(uploadingFolder, video)
-    const resources = screenshots.concat(videoPath)
-
-    if (keepFiles) {
-      await Common.moveFullPathFiles(resources, outputFolder)
-    } else {
-      Common.deleteFullPathFiles(resources)
-    }
+    await recycleUploadSuccessVideos(videos, imagesToUpload, handleFolder, uploadingFolder, outputFolder, keepFiles)
 
     await checkShouldAbortUploadProgress(true)
   }
