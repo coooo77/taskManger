@@ -3,7 +3,7 @@ import path from 'path'
 import Main from './main.js'
 import Common from './common.js'
 import cp from 'child_process'
-import { Convert } from '../types/config.js'
+import type { Convert, CustomSetting } from '../types/config.js'
 
 type GetMediaDurationRes<T extends boolean> = T extends boolean ? number : string
 
@@ -227,8 +227,14 @@ export default class FFmpeg {
     const { convert } = Main.getConfig()
     const { ext, showConvertCmd, customSetting, defaultFFmpegSetting, defaultSuffix } = convert
 
-    const streamerName = name.split('_')[0]
-    const custom = customSetting[streamerName]
+    let custom: CustomSetting | undefined
+    if (customSetting) {
+      for (const streamerName of Object.keys(customSetting)) {
+        if (!name.includes(streamerName)) continue
+        custom = customSetting[streamerName]
+        break
+      }
+    }
 
     const { ffmpegSetting, suffix } = task
     const videoSuffix = custom?.suffix || suffix || defaultSuffix
