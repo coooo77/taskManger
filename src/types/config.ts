@@ -10,14 +10,17 @@ type Preset =
   | 'veryslow'
   | 'placebo'
 
+interface CustomSetting {
+  ffmpegSetting: string
+  suffix: string
+}
+
 interface ConvertOption {
   ext: string
-  suffixForMute: string
-  suffixForCompress: string
-  preset: Preset
-  crf: number
+  defaultSuffix: string
   showConvertCmd?: boolean
-  customCrf?: Record<string, number>
+  defaultFFmpegSetting: string
+  customSetting: Record<string, CustomSetting>
 }
 
 interface ScreenshotOption {
@@ -82,8 +85,8 @@ export interface Convert extends TaskCommonSetting {
   handleFolder: string
   outputFolder: string
   screenshot: boolean
-  mute: boolean
-  compress: boolean
+  ffmpegSetting?: string
+  suffix?: string
   split?: boolean
   skip?: boolean
   keepFiles?: boolean
