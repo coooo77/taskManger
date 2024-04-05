@@ -38,7 +38,7 @@ export default class FFmpeg {
 
         const filename = FFmpeg.getFFmpegCmdFileName(command)
         const patternTime = /time=([\d:]+.\d+)/
-        const patternSpeed = /speed=([\d.]+x)/
+        const patternSpeed = /speed=(.*[\d.]+x)/
 
         task.stderr.on('data', (data) => {
           const message = data.toString()
