@@ -90,7 +90,6 @@
     "ext": "mp4",
     "defaultFFmpegSetting": "-b 350k -filter:v setpts=PTS/4 -vcodec libx264 -crf 24 -an -preset veryfast",
     "defaultSuffix": "_mute_convert_4x_crf24",
-    "crf": 28,
     "showConvertCmd": true,
     "customSetting": {
       "nameOfStreamer": {
