@@ -3,7 +3,7 @@ import { join, parse } from 'path'
 import { readFileSync, readdirSync } from 'fs'
 
 import clipboard from 'clipboardy'
-import { mouse, keyboard, Key, Point, Button } from '@nut-tree/nut-js'
+import { mouse, keyboard, Key, Point, Button } from '@nut-tree-fork/nut-js'
 
 import Main from '../util/main.js'
 import Common from '../util/common.js'

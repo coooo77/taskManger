@@ -19,7 +19,7 @@
     "ts-node": "^10.9.1"
   },
   "dependencies": {
-    "@nut-tree/nut-js": "^3.1.2",
+    "@nut-tree-fork/nut-js": "^4.2.2",
     "chalk": "^4.1.2",
     "clipboardy": "^3.0.0",
     "typescript": "^5.2.2"
