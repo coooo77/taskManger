@@ -31,7 +31,17 @@
         "mp4"
       ],
       "keepFiles": false,
-      "ffmpegSetting": "-vcodec libx264 -crf 24 -preset veryfast",
+      "defaultFFmpegSetting": "-vcodec libx264 -crf 24 -preset veryfast",
+      "customSetting": [
+        {
+          "include": [
+            "nameOfStreamer1",
+            "nameOfStreamer2"
+          ],
+          "ffmpegSetting": "-b:v 1M -vcodec libx264 -crf 24 -preset veryfast",
+          "suffix": "_compress_b1M"
+        }
+      ],
       "suffix": "_compress",
       "outputFolder": "E:\\path\\to\\output",
       "screenshot": true,
@@ -91,12 +101,16 @@
     "defaultFFmpegSetting": "-b 350k -filter:v setpts=PTS/4 -vcodec libx264 -crf 24 -an -preset veryfast",
     "defaultSuffix": "_mute_convert_4x_crf24",
     "showConvertCmd": true,
-    "customSetting": {
-      "nameOfStreamer": {
+    "customSetting": [
+      {
+        "include": [
+          "nameOfStreamer1",
+          "nameOfStreamer2"
+        ],
         "ffmpegSetting": "-b 350k -filter:v setpts=PTS/4 -vcodec libx264 -crf 18 -an -preset veryfast",
         "suffix": "_mute_convert"
       }
-    }
+    ]
   },
   "combine": {
     "suffixForCombine": "_combine",

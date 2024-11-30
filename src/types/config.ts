@@ -11,6 +11,7 @@ type Preset =
   | 'placebo'
 
 export interface CustomSetting {
+  includes: string[]
   ffmpegSetting: string
   suffix: string
 }
@@ -20,7 +21,7 @@ interface ConvertOption {
   defaultSuffix: string
   showConvertCmd?: boolean
   defaultFFmpegSetting: string
-  customSetting: Record<string, CustomSetting>
+  customSetting?: CustomSetting[]
 }
 
 interface ScreenshotOption {
@@ -78,6 +79,7 @@ interface TaskCommonSetting {
   exceptions?: string[]
   /** specify some files only */
   includes?: string[]
+  skip?: boolean
 }
 
 export interface Convert extends TaskCommonSetting {
@@ -88,8 +90,9 @@ export interface Convert extends TaskCommonSetting {
   ffmpegSetting?: string
   suffix?: string
   split?: boolean
-  skip?: boolean
   keepFiles?: boolean
+  defaultFFmpegSetting?: string
+  customSetting?: CustomSetting[]
 }
 
 export interface Combine extends TaskCommonSetting {
@@ -98,7 +101,6 @@ export interface Combine extends TaskCommonSetting {
   outputFolder: string
   screenshot: boolean
   split?: boolean
-  skip?: boolean
   keepFiles?: boolean
 }
 
@@ -106,14 +108,12 @@ export interface Upload extends TaskCommonSetting {
   type: 'upload'
   handleFolder: string
   outputFolder: string
-  skip?: boolean
   keepFiles?: boolean
 }
 
 export interface Move extends TaskCommonSetting {
   type: 'move'
   targetFolder: string
-  skip?: boolean
 }
 
 export type Task = Convert | Combine | Upload | Move

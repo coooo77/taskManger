@@ -225,25 +225,27 @@ export default class FFmpeg {
   static async convert(filePath: string, task: Convert, exportPath?: string) {
     const { dir, name } = path.parse(filePath)
     const { convert } = Main.getConfig()
-    const { ext, showConvertCmd, customSetting, defaultFFmpegSetting, defaultSuffix } = convert
+    const { ext, showConvertCmd, defaultFFmpegSetting, defaultSuffix } = convert
 
-    let custom: CustomSetting | undefined
+    let suffix = defaultSuffix
+    let ffmpegSetting = defaultFFmpegSetting
+    const customSetting = task.customSetting || convert.customSetting
+
     if (customSetting) {
-      for (const streamerName of Object.keys(customSetting)) {
-        if (!name.includes(streamerName)) continue
-        custom = customSetting[streamerName]
+      for (const setting of customSetting) {
+        const isValid = setting.includes.some((streamerName) => name.includes(streamerName))
+        if (!isValid) continue
+
+        suffix = setting.suffix
+        ffmpegSetting = setting.ffmpegSetting
         break
       }
     }
 
-    const { ffmpegSetting, suffix } = task
-    const videoSuffix = custom?.suffix || suffix || defaultSuffix
-    const videoSetting = custom?.ffmpegSetting || ffmpegSetting || defaultFFmpegSetting
-
     const exportFilePath = exportPath || dir
-    const convertFilePath = path.join(exportFilePath, `${name}${videoSuffix}.${ext}`)
+    const convertFilePath = path.join(exportFilePath, `${name}${suffix}.${ext}`)
 
-    const cmd = `-i ${filePath} -y ${videoSetting} ${convertFilePath}`
+    const cmd = `-i ${filePath} -y ${ffmpegSetting} ${convertFilePath}`
 
     if (showConvertCmd) {
       cp.execSync(`start ffmpeg ${cmd}`)
