@@ -225,10 +225,10 @@ export default class FFmpeg {
   static async convert(filePath: string, task: Convert, exportPath?: string) {
     const { dir, name } = path.parse(filePath)
     const { convert } = Main.getConfig()
-    const { ext, showConvertCmd, defaultFFmpegSetting, defaultSuffix } = convert
+    const { ext, showConvertCmd } = convert
 
-    let suffix = defaultSuffix
-    let ffmpegSetting = defaultFFmpegSetting
+    let suffix = task.suffix || convert.defaultSuffix
+    let ffmpegSetting = task.ffmpegSetting || convert.defaultFFmpegSetting
     const customSetting = task.customSetting || convert.customSetting
 
     if (customSetting) {

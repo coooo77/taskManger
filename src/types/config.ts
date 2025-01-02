@@ -91,7 +91,6 @@ export interface Convert extends TaskCommonSetting {
   suffix?: string
   split?: boolean
   keepFiles?: boolean
-  defaultFFmpegSetting?: string
   customSetting?: CustomSetting[]
 }
 
