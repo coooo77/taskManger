@@ -5,6 +5,8 @@
   "description": "",
   "main": "index.js",
   "scripts": {
+    "start": "node dist/index",
+    "build": "npx tsc",
     "dev": "npx ts-node --esm ./src/index.ts",
     "test": "npx tsc && node dist/index",
     "pm2": "npx tsc && pm2 start dist/index.js --name \"task_manger\""

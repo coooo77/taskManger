@@ -245,7 +245,8 @@ export default class FFmpeg {
     const exportFilePath = exportPath || dir
     const convertFilePath = path.join(exportFilePath, `${name}${suffix}.${ext}`)
 
-    const cmd = `-i ${filePath} -y ${ffmpegSetting} ${convertFilePath}`
+    const metadata = ffmpegSetting.split(' ').join('_')
+    const cmd = `-i ${filePath} -y -metadata comment=${metadata} ${ffmpegSetting} ${convertFilePath}`
 
     if (showConvertCmd) {
       cp.execSync(`start ffmpeg ${cmd}`)
